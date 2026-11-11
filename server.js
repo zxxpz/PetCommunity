@@ -1,6 +1,7 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const { handleApi } = require('./server-api');
 
 const root = __dirname;
 const contentTypes = {
@@ -13,8 +14,17 @@ const contentTypes = {
   '.jpg': 'image/jpeg'
 };
 
-const server = http.createServer((req, res) => {
+const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://localhost');
+  if (url.pathname.startsWith('/api/')) {
+    try {
+      await handleApi(req, res, url);
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ error: err.message || '服务器内部错误' }));
+    }
+    return;
+  }
   let requestPath = '/';
   try {
     requestPath = decodeURIComponent(url.pathname);
@@ -46,14 +56,18 @@ const server = http.createServer((req, res) => {
             res.end('404 Not Found');
             return;
           }
-          res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+          res.writeHead(200, {
+            'Content-Type': 'text/html; charset=utf-8',
+            'Cache-Control': 'no-store'
+          });
           res.end(fallbackContent);
         });
         return;
       }
       const ext = path.extname(filePath).toLowerCase();
       res.writeHead(200, {
-        'Content-Type': contentTypes[ext] || 'application/octet-stream'
+        'Content-Type': contentTypes[ext] || 'application/octet-stream',
+        'Cache-Control': 'no-store'
       });
       res.end(content);
     });
