@@ -567,10 +567,16 @@ function drawPattern(ctx, size, palette, pattern) {
     bottom.addColorStop(0, rgbOf(accent, 0.6)); bottom.addColorStop(1, rgbOf(accent, 0));
     ctx.fillStyle = bottom; ctx.fillRect(0, size * 0.72, size, size * 0.28);
   } else {
-    for (let i = 0; i < 9; i += 1) {
+    /* 纯色猫的「毛色不匀」：以前是 9 个大径向渐变（半径 90–180px，画布才 512），
+     * 在脸上就是几团水彩云，用户说的「面部纹理不对」一半来自这里。
+     * 改成 22 个小斑、明暗双向、透明度压到 0.05：只是让底色别像塑料，
+     * 真正的毛感交给 drawFurStrokes 的毛流笔触 */
+    for (let i = 0; i < 22; i += 1) {
       const x = Math.random() * size, y = Math.random() * size;
-      const g = ctx.createRadialGradient(x, y, 0, x, y, 90 + Math.random() * 90);
-      g.addColorStop(0, rgbOf(shade(palette.base, 1.06), 0.14));
+      const r = 16 + Math.random() * 30;
+      const bright = Math.random() < 0.55;
+      const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+      g.addColorStop(0, rgbOf(bright ? shade(palette.base, 1.05) : shade(palette.base, 0.95), 0.055));
       g.addColorStop(1, rgbOf(palette.base, 0));
       ctx.fillStyle = g; ctx.fillRect(0, 0, size, size);
     }
@@ -600,8 +606,8 @@ function furFlowAngle(u, v) {
 }
 
 function drawFurStrokes(ctx, size, palette, count) {
-  const highlight = mixColor(palette.base, { r: 255, g: 250, b: 238 }, 0.72);
-  const shadow = mixColor(palette.base, { r: 30, g: 22, b: 18 }, 0.52);
+  const highlight = mixColor(palette.base, { r: 255, g: 250, b: 238 }, 0.46);
+  const shadow = mixColor(palette.base, { r: 30, g: 22, b: 18 }, 0.28);
   ctx.lineCap = 'round';
   let drawn = 0;
   let guard = 0;
@@ -620,13 +626,16 @@ function drawFurStrokes(ctx, size, palette, count) {
       drawn += 1;
       const x = cx + (Math.random() - 0.5) * spread;
       const y = cy + (Math.random() - 0.5) * spread;
-      const len = 4 + Math.random() * 13;
+      // 笔触必须够大：贴图只有 512px，整张脸在贴图上约 180px，
+      // 而屏幕上脸也只有 200px 左右 —— 1px 的细线等于没画。
+      // 之前 len 4~17 / lineWidth 0.5~1.8，正是「脸上什么都没有」的原因
+      const len = 7 + Math.random() * 14;
       const a = tuftAngle + (Math.random() - 0.5) * 0.32;
       const dx = Math.sin(a) * len;
       const dy = Math.cos(a) * len;
       const bend = (Math.random() - 0.5) * 0.55;
-      ctx.strokeStyle = rgbOf(bright ? highlight : shadow, 0.022 + Math.random() * 0.078);
-      ctx.lineWidth = 0.5 + Math.random() * 1.3;
+      ctx.strokeStyle = rgbOf(bright ? highlight : shadow, 0.028 + Math.random() * 0.062);
+      ctx.lineWidth = 1.0 + Math.random() * 1.5;
       ctx.beginPath();
       ctx.moveTo(x, y);
       ctx.quadraticCurveTo(
@@ -675,21 +684,22 @@ function paintLightAreas(ctx, size, palette, bib) {
   if (bib) {
     // 胸口白斑：不能用一个大椭圆 —— 圆柱 UV 里椭圆的顶边是一条水平线，
     // 会在胸口横切一刀。改成几个越来越窄的圆叠起来，边界才是自然的弧形。
-    // 底边必须停在 v≈0.245：再往下就进入前腿的 v 区间（0.06–0.24），
-    // 胸白会顺着腿一路流下去，四条腿整根变白
-    soft(0.5, 0.248, 0.088, 0.052);
-    soft(0.5, 0.296, 0.082, 0.056);
-    soft(0.5, 0.344, 0.062, 0.052);
-    soft(0.5, 0.392, 0.040, 0.042);
+    // 底边必须停在 v≈0.27 以上：前腿的 v 区间是 0.06–0.24，
+    // 胸白一旦压到 0.24 以下就顺着腿一路流下去，四条腿整根变白。
+    // u 半径也不能超过 0.06：前腿在 u 0.406 / 0.594，胸白一宽就盖到腿上
+    soft(0.5, 0.286, 0.058, 0.040);
+    soft(0.5, 0.322, 0.068, 0.046);
+    soft(0.5, 0.362, 0.056, 0.046);
+    soft(0.5, 0.400, 0.036, 0.038);
     // 口鼻白：三瓣（左右胡须垫 + 下巴），同样是圆的叠加，没有直边；
     // 强度压到 0.8，不然在头像尺寸下会变成一撇白胡子
-    soft(0.474, 0.506, 0.026, 0.024, 0.8);
-    soft(0.526, 0.506, 0.026, 0.024, 0.8);
-    soft(0.5, 0.487, 0.030, 0.023, 0.85);
+    soft(0.474, 0.506, 0.024, 0.022, 0.55);
+    soft(0.526, 0.506, 0.024, 0.022, 0.55);
+    soft(0.5, 0.487, 0.028, 0.021, 0.62);
     // 四只白袜子：只盖住脚掌那一段。之前 rx/ry 给到 0.052/0.078，
     // 一路画到小腿，四条腿整根变白，远看像穿了四只白靴子
-    [[0.406, 0.070], [0.594, 0.070], [0.143, 0.070], [0.857, 0.070]].forEach(([u, v]) => {
-      soft(u, v, 0.034, 0.050);
+    [[0.406, 0.062], [0.594, 0.062], [0.143, 0.062], [0.857, 0.062]].forEach(([u, v]) => {
+      soft(u, v, 0.030, 0.040);
     });
   } else {
     // 纯色猫（蓝猫、渐层）没有白斑，但下巴和胸口本身比身上浅一档，
@@ -828,7 +838,7 @@ function makeCoatCanvas(palette, pattern, lightPart, bib = true) {
     paintLightAreas(ctx, size, palette, bib);
     paintTailBase(ctx, size, palette);
   }
-  drawFurStrokes(ctx, size, p, lightPart ? 6500 : 10000);
+  drawFurStrokes(ctx, size, p, lightPart ? 3000 : 4600);
   // 细颗粒叠加：让毛发有短绒的颗粒感，而不是高对比的黑白噪点
   ctx.save();
   ctx.globalAlpha = 0.16;
@@ -899,7 +909,7 @@ function coatFrom(info, thumb) {
       // 内耳不能固定用糖果粉：灰猫配亮粉内耳一眼就是贴图。
       // 真猫的内耳其实很淡（灰猫就是一层灰粉），所以粉的比例只给 0.3，
       // 底色用比毛色略深的 0.86 —— 这样耳朵是「毛色的暗部」，不是贴了块粉布
-      earInner: toThree(mixColor(shade(info.palette.base, 0.86), { r: 206, g: 150, b: 152 }, 0.3)),
+      earInner: toThree(mixColor(shade(info.palette.base, 1.04), { r: 214, g: 166, b: 168 }, 0.55)),
       earRim: toThree(mixColor(mixColor(shade(info.palette.base, 0.86), { r: 206, g: 150, b: 152 }, 0.3), info.palette.accent, 0.3)),
       sheen: toThree(mixColor(info.palette.base, info.palette.light, 0.45)),
       shell: toThree(mixColor(info.palette.base, info.palette.light, 0.35))
@@ -1112,19 +1122,31 @@ function getFurBumpTexture() {
   ctx.fillStyle = '#808080';
   ctx.fillRect(0, 0, S, S);
   ctx.lineCap = 'round';
-  for (let i = 0; i < 5200; i += 1) {
-    const x = Math.random() * S;
-    const y = Math.random() * S;
-    const len = 3 + Math.random() * 9;
-    const v = Math.random() < 0.5 ? 104 + Math.random() * 34 : 138 + Math.random() * 34;
-    // 每根毛带 ±0.6 的随机倾角：全部竖直的话，圆柱 UV 会在脸上拉成一排竖条
-    const tilt = (Math.random() - 0.5) * 1.2;
-    ctx.strokeStyle = `rgba(${v},${v},${v},0.55)`;
-    ctx.lineWidth = 0.5 + Math.random() * 1.2;
-    ctx.beginPath();
-    ctx.moveTo(x, y);
-    ctx.quadraticCurveTo(x + tilt * len * 0.35, y + len * 0.5, x + tilt * len, y + len);
-    ctx.stroke();
+  // 和颜色贴图一样按「簇」落笔：一撮 3–6 根、方向相近。
+  // 均匀随机撒点在高光下会读成砂纸，成簇才有短绒的块面感
+  let n = 0;
+  while (n < 5200) {
+    const cx = Math.random() * S;
+    const cy = Math.random() * S;
+    const tuftAngle = (Math.random() - 0.5) * 1.1;
+    const tuft = 3 + Math.floor(Math.random() * 4);
+    const bright = Math.random() < 0.5;
+    for (let k = 0; k < tuft && n < 5200; k += 1, n += 1) {
+      const x = cx + (Math.random() - 0.5) * 7;
+      const y = cy + (Math.random() - 0.5) * 7;
+      const len = 3 + Math.random() * 8;
+      const a = tuftAngle + (Math.random() - 0.5) * 0.4;
+      const v = bright ? 138 + Math.random() * 34 : 104 + Math.random() * 34;
+      ctx.strokeStyle = `rgba(${v},${v},${v},0.55)`;
+      ctx.lineWidth = 0.5 + Math.random() * 1.2;
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.quadraticCurveTo(
+        x + Math.sin(a) * len * 0.45, y + Math.cos(a) * len * 0.45,
+        x + Math.sin(a) * len, y + Math.cos(a) * len
+      );
+      ctx.stroke();
+    }
   }
   furBumpTexture = canvasTexture(canvas, 4);
   furBumpTexture.colorSpace = THREE.NoColorSpace;
@@ -1196,7 +1218,9 @@ function makeMaterials(coat) {
     limb: fur(coat.tex.limb),
     strand: new THREE.MeshStandardMaterial({
       color: 0xffffff, roughness: 1, metalness: 0, side: THREE.DoubleSide,
-      transparent: true, opacity: 0.62, depthWrite: false
+      // vertexColors 读的是锥体自带的「根暗尖亮」渐变，instanceColor 再乘上毛色
+      vertexColors: true,
+      transparent: true, opacity: 0.55, depthWrite: false
     }),
     earInner: new THREE.MeshStandardMaterial({ color: coat.colors.earInner.clone(), roughness: 0.95, side: THREE.DoubleSide }),
     // 耳窝内侧的暗边：没有这一圈，粉色内耳就像贴在耳朵上的一块塑料片
@@ -1226,15 +1250,20 @@ function makeMaterials(coat) {
 }
 
 function strandColors(coat) {
-  // 毛丝只取主毛色附近的小幅明暗变化，混进大片浅色会变成「白色划痕」
-  const list = [coat.colors.shell, coat.colors.base];
-  const result = [];
-  list.forEach((c) => {
-    result.push(c.clone());
-    result.push(c.clone().offsetHSL(0, 0, 0.035));
-    result.push(c.clone().offsetHSL(0, 0, -0.02));
-  });
-  return result;
+  /* 毛丝要比底色「亮」而不是「深」。
+   * 之前直接拿 base / shell 上色，在浅色背景上，轮廓那一圈全是黑色硬刺 ——
+   * 真猫的毛在边缘是透光的，越靠外越亮。
+   * 现在以「主色混浅色」为主，只留一成暗色做层次。 */
+  const soft = toThree(mixColor(coat.palette.base, coat.palette.light, 0.44));
+  const mid = toThree(mixColor(coat.palette.base, coat.palette.light, 0.26));
+  const dark = toThree(shade(coat.palette.base, 0.9));
+  return [
+    soft,
+    soft.clone().offsetHSL(0, 0, 0.035),
+    mid,
+    mid.clone().offsetHSL(0, 0, 0.02),
+    dark
+  ];
 }
 
 function recolorStrands(mesh, colors) {
@@ -1242,8 +1271,27 @@ function recolorStrands(mesh, colors) {
   if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
 }
 
+/* 毛丝的锥体只有 4 个侧面，整根同色的话，掠射光下就是一排小三角。
+ * 给顶点色加一个「根暗 → 尖亮」的渐变：毛尖受光更多，远看才有透光的绒感。
+ * 顶点色会和 InstancedMesh 的 instanceColor 相乘，所以这里只放明度系数。 */
+let strandGeometry = null;
+function getStrandGeometry() {
+  if (strandGeometry) return strandGeometry;
+  const geo = new THREE.ConeGeometry(1, 1, 4, 3, true);
+  const pos = geo.attributes.position;
+  const colors = new Float32Array(pos.count * 3);
+  for (let i = 0; i < pos.count; i += 1) {
+    const t = clamp(pos.getY(i) + 0.5, 0, 1);
+    const v = 0.70 + t * 0.52;
+    colors[i * 3] = v; colors[i * 3 + 1] = v; colors[i * 3 + 2] = v;
+  }
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+  strandGeometry = geo;
+  return strandGeometry;
+}
+
 function addFurStrands(parent, count, scaleVec, colors, options = {}) {
-  const geometry = new THREE.ConeGeometry(1, 1, 4);
+  const geometry = getStrandGeometry();
   const mesh = new THREE.InstancedMesh(geometry, options.material, count);
   const dummy = new THREE.Object3D();
   const normal = new THREE.Vector3();
@@ -1280,70 +1328,82 @@ function addFurStrands(parent, count, scaleVec, colors, options = {}) {
   return mesh;
 }
 
-/* 沿射线走到「真正的曲面」上再放毛发。
- * addFurStrands 是按椭球半径撒点的，但猫的脸不是一个标准椭球：
- * 额头、眉骨、腮都比椭球鼓出去 1~2cm，毛根埋在网格里面，
- * 只剩毛尖戳出来 —— 远看一脸小黑点。这里用距离场做射线求交，
- * 毛根才真正贴在皮肤上，法线也准，毛才会顺着曲面往外长。 */
-function addSurfaceStrands(bone, originRoot, count, colors, options = {}) {
-  const geometry = new THREE.ConeGeometry(1, 1, 4);
-  const mesh = new THREE.InstancedMesh(geometry, options.material, count);
-  const dummy = new THREE.Object3D();
-  const dir = new THREE.Vector3();
-  const pos = new THREE.Vector3();
-  const normal = new THREE.Vector3();
-  const golden = Math.PI * (3 - Math.sqrt(5));
+/* 在网格顶点上直接「种毛」。
+ *
+ * 走过两条弯路，都记在这里：
+ *  1) 按椭球半径撒点（addFurStrands）：脸不是标准椭球，额头/腮鼓出去 1~2cm，
+ *     毛根埋进网格里，只剩毛尖戳出来 —— 一脸小黑点。
+ *  2) 从骨骼中心打射线求交：中心在实体内部，第一步就判「命中」，
+ *     毛根全埋在头骨里 5cm，一根都看不见；而且密度按立体角分布，
+ *     头顶密、脖子稀，会形成一条「发带」。
+ * 正确做法：直接用蒙皮网格自己的顶点和法线。密度均匀、法线准确，
+ * 每根毛挂到权重最大的那根骨头上，跟着动画一起动。 */
+function addMeshStrands(mesh, bones, count, colors, options = {}) {
+  const geo = mesh.geometry;
+  const posAttr = geo.attributes.position;
+  const nrmAttr = geo.attributes.normal;
+  const skinIndex = geo.attributes.skinIndex;
+  const skinWeight = geo.attributes.skinWeight;
+  if (!posAttr || !nrmAttr || !skinIndex || !skinWeight) return [];
+  const total = posAttr.count;
+  const step = Math.max(1, Math.floor(total / Math.max(1, count)));
+  const buckets = new Map();
+  const p = new THREE.Vector3();
+  const nv = new THREE.Vector3();
+  for (let i = 0; i < total; i += step) {
+    // 打散采样相位，否则毛会按顶点顺序排成一行行
+    if (Math.random() < 0.3) continue;
+    nv.set(nrmAttr.getX(i), nrmAttr.getY(i), nrmAttr.getZ(i));
+    if (nv.lengthSq() < 1e-8) continue;
+    nv.normalize();
+    p.set(posAttr.getX(i), posAttr.getY(i), posAttr.getZ(i));
+    if (options.filter && !options.filter(nv, p.x, p.y, p.z)) continue;
+    let boneIdx = 0;
+    let bestW = -1;
+    const weights = [skinWeight.getX(i), skinWeight.getY(i), skinWeight.getZ(i), skinWeight.getW(i)];
+    const idx = [skinIndex.getX(i), skinIndex.getY(i), skinIndex.getZ(i), skinIndex.getW(i)];
+    for (let k = 0; k < 4; k += 1) {
+      if (weights[k] > bestW) { bestW = weights[k]; boneIdx = idx[k]; }
+    }
+    if (!buckets.has(boneIdx)) buckets.set(boneIdx, []);
+    buckets.get(boneIdx).push([p.x, p.y, p.z, nv.x, nv.y, nv.z]);
+  }
   const minLen = options.minLen || 0.012;
   const maxLen = options.maxLen || 0.028;
-  const [ox, oy, oz] = originRoot;
-  const field = (x, y, z) => catField(x, y, z);
-  let n = 0;
-  const attempts = count * 4;
-  for (let i = 0; i < attempts && n < count; i += 1) {
-    const y = 1 - (i / attempts) * 2;
-    const r = Math.sqrt(Math.max(0, 1 - y * y));
-    const theta = golden * i;
-    dir.set(Math.cos(theta) * r, y, Math.sin(theta) * r).normalize();
-    if (options.filter && !options.filter(dir)) continue;
-    let t = 0.06;
-    let hit = -1;
-    for (let s = 0; s < 70; s += 1) {
-      if (field(ox + dir.x * t, oy + dir.y * t, oz + dir.z * t) < 0) { hit = t; break; }
-      t += 0.010;
-    }
-    if (hit < 0) continue;
-    let lo = Math.max(0.02, hit - 0.010);
-    let hi = hit;
-    for (let s = 0; s < 9; s += 1) {
-      const mid = (lo + hi) / 2;
-      if (field(ox + dir.x * mid, oy + dir.y * mid, oz + dir.z * mid) < 0) hi = mid; else lo = mid;
-    }
-    const tHit = (lo + hi) / 2;
-    pos.set(ox + dir.x * tHit, oy + dir.y * tHit, oz + dir.z * tHit);
-    const e = 0.006;
-    normal.set(
-      field(pos.x + e, pos.y, pos.z) - field(pos.x - e, pos.y, pos.z),
-      field(pos.x, pos.y + e, pos.z) - field(pos.x, pos.y - e, pos.z),
-      field(pos.x, pos.y, pos.z + e) - field(pos.x, pos.y, pos.z - e)
-    ).normalize();
-    const length = minLen + Math.random() * (maxLen - minLen);
-    const thickness = 0.0020 + Math.random() * 0.0018;
-    // 换到骨骼局部坐标：头骨只有平移，没有旋转
-    dummy.position.set(pos.x - ox, pos.y - oy, pos.z - oz).addScaledVector(normal, length * 0.35);
-    dummy.quaternion.setFromUnitVectors(UP, normal);
-    dummy.rotateY(Math.random() * Math.PI * 2);
-    dummy.rotateX((Math.random() - 0.5) * 0.5);
-    dummy.scale.set(thickness, length, thickness);
-    dummy.updateMatrix();
-    mesh.setMatrixAt(n, dummy.matrix);
-    n += 1;
-  }
-  mesh.count = n;
-  mesh.instanceMatrix.needsUpdate = true;
-  mesh.frustumCulled = false;
-  recolorStrands(mesh, colors);
-  bone.add(mesh);
-  return mesh;
+  const minThick = options.minThick || 0.0020;
+  const maxThick = options.maxThick || 0.0038;
+  const dummy = new THREE.Object3D();
+  const local = new THREE.Vector3();
+  const localNormal = new THREE.Vector3();
+  const out = [];
+  buckets.forEach((list, boneIdx) => {
+    const bone = bones[boneIdx];
+    if (!bone || !list.length) return;
+    bone.updateWorldMatrix(true, false);
+    const toLocal = new THREE.Matrix4().copy(bone.matrixWorld).invert();
+    const rotLocal = new THREE.Quaternion().setFromRotationMatrix(toLocal);
+    const inst = new THREE.InstancedMesh(getStrandGeometry(), options.material, list.length);
+    list.forEach(([x, y, z, nx, ny, nz], k) => {
+      const length = minLen + Math.random() * (maxLen - minLen);
+      const thickness = minThick + Math.random() * (maxThick - minThick);
+      local.set(x, y, z).applyMatrix4(toLocal);
+      localNormal.set(nx, ny, nz).applyQuaternion(rotLocal);
+      dummy.position.copy(local).addScaledVector(localNormal, length * 0.35);
+      dummy.quaternion.setFromUnitVectors(UP, localNormal);
+      dummy.rotateY(Math.random() * Math.PI * 2);
+      dummy.rotateX((Math.random() - 0.5) * 0.55);
+      dummy.scale.set(thickness, length, thickness);
+      dummy.updateMatrix();
+      inst.setMatrixAt(k, dummy.matrix);
+    });
+    inst.count = list.length;
+    inst.instanceMatrix.needsUpdate = true;
+    inst.frustumCulled = false;
+    recolorStrands(inst, colors);
+    bone.add(inst);
+    out.push(inst);
+  });
+  return out;
 }
 
 function sphere(parent, material, radius, position, scale, name, segments = 24) {
@@ -1854,23 +1914,25 @@ function buildCatRig(cat) {
   parts.headRig = headRig;
   parts.skinnedMesh = mesh;
 
-  // 身体绒毛：整圈都长，底部留空，避免毛穿过地毯
-  parts.strandMeshes.push(addFurStrands(bodyRig, 900, [0.42, 0.36, 0.54], strandColors(coat), {
+  /* 全身绒毛：一次撒在整张网格上，按蒙皮权重分到各根骨头。
+   * 过滤三处：
+   *  1) 正脸（眼、鼻、口那一块 z>0.58、y 0.86~1.10）留空，否则短毛插进眼睛里
+   *  2) 朝下的面（贴地）不铺，会插进地毯
+   *  3) 前胸白斑上不铺 —— 白毛配灰毛丝会脏，胸口的绒感交给贴图 */
+  const bodyStrands = addMeshStrands(mesh, boneList, 5200, strandColors(coat), {
     material: materials.strand,
-    minLen: 0.012, maxLen: 0.026,
-    filter: (n) => n.z > 0.3
-  }));
-  parts.strandMeshes[parts.strandMeshes.length - 1].position.set(0, 0, -0.06);
-
-  /* 头部绒毛：整只猫最缺「毛绒感」的就是脸。
-   * 只在额头、后脑和腮帮长，正脸（眼鼻口所在的那一块）留空，
-   * 否则短毛会插进眼睛里，五官立刻糊掉 */
-  const headStrands = addSurfaceStrands(headRig, [0, 0.982, 0.30], 1100, strandColors(coat), {
-    material: materials.strand,
-    minLen: 0.011, maxLen: 0.027,
-    filter: (n) => !(n.z > 0.52 && n.y < 0.42)
+    minLen: 0.008, maxLen: 0.019,
+    minThick: 0.0022, maxThick: 0.0044,
+    filter: (n, x, y, z) => {
+      // 贴地的脚掌不铺：毛会插进地毯，还会在垫子上留下一片「掉毛」
+      // 0.17 以下全是白袜子（脚掌），灰毛丝扎在白毛上像一圈黑针，干脆不长
+      if (y < 0.17 || n.y < -0.62) return false;
+      if (z > 0.45 && y > 0.78 && y < 1.16 && Math.abs(x) < 0.28) return false;
+      if (z > 0.30 && y > 0.20 && y < 0.46 && Math.abs(x) < 0.16) return false;
+      return true;
+    }
   });
-  parts.strandMeshes.push(headStrands);
+  bodyStrands.forEach((item) => parts.strandMeshes.push(item));
 
   /* —— 五官：全部贴在距离场算出来的真实表面上 —— */
   const surfaceZ = (x, y) => {
@@ -1985,8 +2047,10 @@ function buildCatRig(cat) {
   const ears = [];
   [['earL', -1], ['earR', 1]].forEach(([name, side]) => {
     const bone = boneMap[name];
-    sphere(bone, materials.earRim, 0.088, [side * 0.016, 0.074, 0.042], [0.66, 1.06, 0.15], null, 18);
-    const inner = sphere(bone, materials.earInner, 0.082, [side * 0.016, 0.074, 0.049], [0.58, 0.98, 0.15], null, 18);
+    /* 只留一层「耳窝」。以前是两层（暗边 + 内耳），两个都是手摆的椭球，
+     * 一旦耳骨旋转幅度大一点，里面那个就会从耳廓里钻出来，在脸上留一块粉色。
+     * 现在合成一个薄片，颜色直接用内耳色，位置往耳窝里收了 6mm */
+    const inner = sphere(bone, materials.earInner, 0.086, [side * 0.012, 0.088, 0.030], [0.62, 1.12, 0.12], null, 18);
     ears.push({ ear: bone, inner, baseZ: 0 });
   });
   parts.ears = ears;
@@ -2000,10 +2064,7 @@ function buildCatRig(cat) {
   // tail0 是根骨，由 applyPoseToRig 单独驱动；逐节循环只能管 tail1..tail3，
   // 否则根骨的旋转会被最后一节覆盖掉，尾巴整条甩到画面外面
   parts.tail = [boneMap.tail1, boneMap.tail2, boneMap.tail3];
-  // 尾尖一小撮毛：数量不能多，200 根挤在一起会变成一团线头
-  parts.strandMeshes.push(addFurStrands(boneMap.tail3, 80, [0.056, 0.056, 0.056], strandColors(coat), {
-    material: materials.strand, minLen: 0.008, maxLen: 0.014
-  }));
+  // 尾尖的毛已经由 addMeshStrands 统一撒过，这里不再单独补一撮
   parts.strandMeshes[parts.strandMeshes.length - 1].position.set(0.10, 0.025, 0.44);
 
   const rig = {
