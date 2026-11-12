@@ -195,6 +195,8 @@
     state.viewingNeighbor = routeNeighborId;
   }
   let cropSession = null;
+  // 多视角照片（3D 重建素材）弹窗状态：null = 关闭
+  let viewsSession = null;
   let appBusy = false;
 
   function save() {
@@ -274,6 +276,7 @@
       state.places = placesData.places || state.places;
       state.mallStreets = mallData.streets || [];
       state.likers = likersData.users || [];
+    state.receivedBullets = data.receivedBullets || [];
       await Promise.all([loadFollowList('following'), loadFollowList('followers')]);
       save();
     } catch (err) {
@@ -857,28 +860,135 @@
     return { kind: 'good', bullets };
   }
 
-  function preparedBullets(bullets) {
-    const pool = bullets.map((bullet, index) => ({ ...bullet, sourceIndex: index }));
-    const stayCount = pool.length <= 3 ? pool.length : 3;
-    const shuffled = pool.slice().sort(() => Math.random() - 0.5);
-    const parks = ['0%', '0%', '0%'];
-    const stays = shuffled.slice(0, stayCount).map((bullet, index) => ({
-      ...bullet,
-      stay: true,
-      park: parks[index % parks.length],
-      duration: 18 + (bullet.sourceIndex % 3) * 2.5,
-      delay: (bullet.sourceIndex % 3) * 2.2
-    }));
-    const passed = pool
-      .filter((bullet) => !stays.some((item) => item.sourceIndex === bullet.sourceIndex))
-      .map((bullet) => ({
-        ...bullet,
-        stay: false,
-        park: '-15%',
-        duration: 13 + (bullet.sourceIndex % 4) * 2,
-        delay: (bullet.sourceIndex % 3) * 1.8
-      }));
-    return [...stays, ...passed].sort((a, b) => a.sourceIndex - b.sourceIndex);
+  const BULLET_SECONDS = 18;
+  const BULLET_SPAWN_MS = BULLET_SECONDS * 500;
+
+  function bulletItemHtml(item) {
+    return `<div class="bullet" style="color:${escapeHtml(item.color || '#ffd166')}">${escapeHtml(item.title)}：${linkifyNeighbor(item.text)}</div>`;
+  }
+
+  function bulletStageHtml(bullets, emptyText) {
+    if (!bullets.length) {
+      return `<div class="bullet-stage bullet-stage-empty">${emptyText}</div>`;
+    }
+    return `<div class="bullet-stage" data-bullet-queue="${escapeHtml(JSON.stringify(bullets))}">
+      <div class="bullet-lane"></div>
+      <div class="bullet-lane"></div>
+    </div>`;
+  }
+
+  // 窗口失焦时统一恢复所有弹幕区，避免浏览器没派发 pointerleave 导致一直卡在暂停状态
+  window.addEventListener('blur', () => {
+    document.querySelectorAll('[data-bullet-paused]').forEach((stage) => {
+      if (stage.__bulletController) stage.__bulletController.reset();
+    });
+  });
+
+  function startBulletQueues() {
+    document.querySelectorAll('[data-bullet-queue]').forEach((stage) => {
+      if (stage.__bulletController) return;
+      let items = [];
+      try {
+        items = JSON.parse(stage.dataset.bulletQueue);
+      } catch (_) {
+        return;
+      }
+      if (!items.length) return;
+
+      const lanes = stage.querySelectorAll('.bullet-lane');
+      let next = 0;
+      let showingLane = 0;
+
+      // 暂停状态是「每个弹幕区独立」的：鼠标移到哪个区，就只冻结哪个区
+      let hovered = false;
+      let focused = false;
+      let paused = false;
+      let spawnTimer = 0;
+      let spawnStartedAt = 0;
+      let spawnRemaining = BULLET_SPAWN_MS;
+
+      function showNext() {
+        if (!document.contains(stage)) return;
+        const lane = lanes[showingLane];
+        showingLane = 1 - showingLane;
+        if (items.length === 1) {
+          showingLane = 0;
+          if (lane !== lanes[0]) return;
+        }
+        const item = items[next % items.length];
+        next += 1;
+        lane.innerHTML = bulletItemHtml(item);
+        const bullet = lane.firstElementChild;
+        if (!bullet) return;
+        // 用动画结束事件回收弹幕：CSS 动画被 animation-play-state 暂停时
+        // animationend 会一起延后，用户正在看的这条不会突然消失。
+        bullet.addEventListener('animationend', (event) => {
+          if (event.target !== bullet) return;
+          if (bullet.isConnected && lane.firstElementChild === bullet) bullet.remove();
+        });
+      }
+
+      function scheduleSpawn() {
+        clearTimeout(spawnTimer);
+        spawnStartedAt = performance.now();
+        spawnTimer = setTimeout(() => {
+          if (!document.contains(stage)) return;
+          showNext();
+          spawnRemaining = BULLET_SPAWN_MS;
+          scheduleSpawn();
+        }, spawnRemaining);
+      }
+
+      function setPaused(value) {
+        if (paused === value) return;
+        paused = value;
+        if (paused) {
+          // 记下剩余时间，恢复时从中断处接着走，而不是重新计时
+          spawnRemaining = Math.max(0, spawnRemaining - (performance.now() - spawnStartedAt));
+          clearTimeout(spawnTimer);
+          stage.dataset.bulletPaused = '1';
+        } else {
+          delete stage.dataset.bulletPaused;
+          if (document.contains(stage)) scheduleSpawn();
+        }
+      }
+
+      const syncPause = () => setPaused(hovered || focused);
+      const isMouse = (event) => !event.pointerType || event.pointerType === 'mouse' || event.pointerType === 'pen';
+
+      stage.addEventListener('pointerenter', (event) => {
+        if (!isMouse(event)) return;
+        hovered = true;
+        syncPause();
+      });
+      // 页面重渲染后鼠标可能仍停在弹幕区上，此时不会再触发 pointerenter
+      stage.addEventListener('pointermove', (event) => {
+        if (!isMouse(event) || hovered) return;
+        hovered = true;
+        syncPause();
+      });
+      stage.addEventListener('pointerleave', (event) => {
+        if (!isMouse(event)) return;
+        hovered = false;
+        syncPause();
+      });
+      stage.addEventListener('pointercancel', () => { hovered = false; syncPause(); });
+      // 弹幕里的邻居链接可以键盘聚焦，聚焦时也暂停，方便点开
+      stage.addEventListener('focusin', () => { focused = true; syncPause(); });
+      stage.addEventListener('focusout', (event) => {
+        if (stage.contains(event.relatedTarget)) return;
+        focused = false;
+        syncPause();
+      });
+
+      stage.__bulletController = {
+        reset: () => { hovered = false; focused = false; syncPause(); },
+        isPaused: () => paused
+      };
+
+      showNext();
+      scheduleSpawn();
+    });
   }
 
   function readImageFile(file, done) {
@@ -1058,6 +1168,402 @@
     image.src = cropSession.source;
   }
 
+  /* ------------------------------------------------------------------ *
+   * 多视角照片：3D 重建素材采集
+   * 弹窗挂在 body 上单独绘制，不走整页 render —— 整页 render 会重建 3D 场景，
+   * 上传十几张照片期间会反复重建 WebGL 上下文。
+   * ------------------------------------------------------------------ */
+  const VIEW_ANGLES = [
+    ['front', '正面'], ['left', '左侧'], ['right', '右侧'], ['back', '背面'],
+    ['top', '俯视'], ['bottom', '仰视'], ['face', '面部特写'], ['body', '全身'], ['extra', '未标注']
+  ];
+  const VIEW_CORE_ANGLES = VIEW_ANGLES.filter(([key]) => key !== 'extra');
+  const VIEW_MAX_SIDE = 1600;
+  // 3 张就够起步：同一只猫的三个角度已经能定毛色和基本比例
+  const VIEW_MIN_FOR_REBUILD = 3;
+
+  function viewsCat() {
+    return viewsSession ? catById(viewsSession.catId) : null;
+  }
+
+  function viewsCoverage() {
+    const items = (viewsSession && viewsSession.items) || [];
+    const used = new Set(items.map((view) => view.angle));
+    return VIEW_CORE_ANGLES.filter(([key]) => used.has(key)).length;
+  }
+
+  function formatBytes(bytes) {
+    const value = Number(bytes) || 0;
+    if (value < 1024) return `${value} B`;
+    if (value < 1024 * 1024) return `${Math.round(value / 1024)} KB`;
+    return `${(value / 1024 / 1024).toFixed(1)} MB`;
+  }
+
+  function viewsModalHtml() {
+    const items = viewsSession.items || [];
+    const count = items.length;
+    const coverage = viewsCoverage();
+    const cat = viewsCat();
+    const coverageChips = VIEW_CORE_ANGLES.map(([key, label]) => {
+      const used = items.some((view) => view.angle === key);
+      return `<span class="views-angle ${used ? 'on' : ''}">${label}${used ? '' : '<i>待补</i>'}</span>`;
+    }).join('');
+
+    const cards = items.map((view) => `<figure class="views-item">
+      <img src="${view.url}" alt="${escapeHtml(view.name || '多视角照片')}" loading="lazy">
+      <figcaption>
+        <select data-views-angle data-id="${view.id}" aria-label="标注视角">
+          ${VIEW_ANGLES.map(([key, label]) => `<option value="${key}" ${key === view.angle ? 'selected' : ''}>${label}</option>`).join('')}
+        </select>
+        <span class="views-size">${formatBytes(view.size)}</span>
+      </figcaption>
+      <button class="views-del" data-action="views-delete" data-id="${view.id}" title="删除这张">✕</button>
+    </figure>`).join('');
+
+    const proposal = viewsSession.proposal;
+    const swatches = proposal
+      ? `<div class="views-proposal">
+          <div class="views-swatches">
+            ${[['主色', proposal.palette.base], ['深色', proposal.palette.accent], ['浅色', proposal.palette.light], ['眼睛', proposal.palette.eye], ['鼻头', proposal.palette.nose]]
+              .map(([label, color]) => `<span class="views-swatch" title="${label}"><i style="background:rgb(${Math.round(color.r)},${Math.round(color.g)},${Math.round(color.b)})"></i>${label}</span>`).join('')}
+          </div>
+          <div class="views-proposal-text">用 ${proposal.samples} 张照片算出：${escapeHtml(proposal.patternLabel)} · ${proposal.bib ? '有白斑' : '无白斑'}。${proposal.balanced < proposal.samples ? `其中 ${proposal.samples - proposal.balanced} 张光线太暗，没参与配色。` : ''}色温已逐张校正，色相只在品种预设附近小幅修正——直接取像素平均会把灰猫算成土黄猫。</div>
+          <div class="views-proposal-actions">
+            <button class="cat3d-btn" data-action="views-discard">丢弃</button>
+            <button class="primary" data-action="views-apply">应用到 3D</button>
+          </div>
+        </div>`
+      : '';
+
+    const shortBy = Math.max(0, VIEW_MIN_FOR_REBUILD - count);
+    const status = viewsSession.progress
+      || (viewsSession.loading
+        ? '正在读取已上传的照片…'
+        : count
+          ? `已上传 ${count} 张 · ${formatBytes(viewsSession.bytes)} · 覆盖 ${coverage}/8 个视角${shortBy ? ` · 再传 ${shortBy} 张就能开始` : ''}`
+          : `还没有照片。传 3 张（正面 / 左侧 / 右侧）就能起步，越多越准。`);
+
+    return `<div class="modal-backdrop" data-views-modal>
+      <div class="views-modal">
+        <div class="views-head">
+          <div>
+            <strong>多视角照片 · 3D 重建素材</strong>
+            <p class="views-sub">${cat ? escapeHtml(cat.name) : ''} 的照片会存到本地 <code>data/views/${cat ? escapeHtml(cat.id) : ''}/</code>，每张自动压到长边 ${VIEW_MAX_SIDE}px。</p>
+          </div>
+          <button class="views-close" data-action="views-close" title="关闭">✕</button>
+        </div>
+
+        <div class="views-drop" data-views-drop>
+          <div class="views-drop-main">
+            <span class="views-drop-icon">＋</span>
+            <div>
+              <strong>把照片拖到这里，或点右边选择</strong>
+              <p>3 张起就能用（建议正面 / 左侧 / 右侧），8 张以上更准，20 张左右最好</p>
+            </div>
+          </div>
+          <button class="primary" data-action="views-pick">选择照片（可多选）</button>
+        </div>
+
+        <div class="views-coverage">${coverageChips}</div>
+
+        ${count ? `<div class="views-grid">${cards}</div>` : '<div class="views-empty">还没有照片</div>'}
+
+        ${proposal ? swatches : ''}
+
+        <div class="views-foot">
+          <span class="views-status">${escapeHtml(status)}</span>
+          <div class="views-foot-actions">
+            <button class="cat3d-btn" data-action="views-calibrate" ${count < VIEW_MIN_FOR_REBUILD || viewsSession.busy ? 'disabled' : ''}>用照片校准毛色</button>
+            <button class="primary" data-action="views-rebuild" ${count < VIEW_MIN_FOR_REBUILD || viewsSession.busy ? 'disabled' : ''}>开始重建</button>
+          </div>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  function paintViewsModal() {
+    let host = document.querySelector('[data-views-modal-host]');
+    if (!viewsSession) {
+      if (host) host.remove();
+      return;
+    }
+    if (!host) {
+      host = document.createElement('div');
+      host.setAttribute('data-views-modal-host', '');
+      document.body.appendChild(host);
+    }
+    host.innerHTML = viewsModalHtml();
+  }
+
+  async function reloadViews() {
+    if (!viewsSession) return;
+    try {
+      const data = await window.MeowAPI.get(`/api/cats/${viewsSession.catId}/views`);
+      if (!viewsSession) return;
+      viewsSession.items = data.views || [];
+      viewsSession.bytes = data.bytes || 0;
+      viewsSession.recon = data.recon || null;
+    } catch (err) {
+      if (viewsSession) viewsSession.progress = `读取失败：${err.message}`;
+    } finally {
+      if (viewsSession) viewsSession.loading = false;
+      paintViewsModal();
+    }
+  }
+
+  async function openViews(catId) {
+    viewsSession = {
+      catId,
+      items: [],
+      bytes: 0,
+      recon: null,
+      loading: true,
+      busy: false,
+      progress: '',
+      proposal: null
+    };
+    paintViewsModal();
+    if (window.MeowAPI && window.MeowAPI.getToken()) await reloadViews();
+    else viewsSession.loading = false;
+  }
+
+  function closeViews() {
+    viewsSession = null;
+    paintViewsModal();
+  }
+
+  // 上传前先压图：手机原图 4~8MB，压完一般 200~500KB，几十张也不会卡
+  function prepareViewFile(file) {
+    return new Promise((resolve, reject) => {
+      const objectUrl = URL.createObjectURL(file);
+      const image = new Image();
+      image.onload = () => {
+        const scale = Math.min(1, VIEW_MAX_SIDE / Math.max(image.width, image.height));
+        const width = Math.max(1, Math.round(image.width * scale));
+        const height = Math.max(1, Math.round(image.height * scale));
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        canvas.getContext('2d').drawImage(image, 0, 0, width, height);
+        canvas.toBlob((blob) => {
+          URL.revokeObjectURL(objectUrl);
+          if (!blob) { reject(new Error('图片压缩失败')); return; }
+          resolve({ blob, width, height });
+        }, 'image/jpeg', 0.86);
+      };
+      image.onerror = () => {
+        URL.revokeObjectURL(objectUrl);
+        reject(new Error('无法读取这张图片'));
+      };
+      image.src = objectUrl;
+    });
+  }
+
+  function guessViewAngle(name) {
+    const text = String(name || '').toLowerCase();
+    if (/face|头|脸|特写/.test(text)) return 'face';
+    if (/front|正面|正脸/.test(text)) return 'front';
+    if (/left|左/.test(text)) return 'left';
+    if (/right|右/.test(text)) return 'right';
+    if (/back|背|后/.test(text)) return 'back';
+    if (/top|俯|上/.test(text)) return 'top';
+    if (/bottom|仰|下/.test(text)) return 'bottom';
+    if (/body|全身|站|坐/.test(text)) return 'body';
+    return 'extra';
+  }
+
+  async function uploadViewFiles(files) {
+    if (!viewsSession) return;
+    const list = Array.from(files || []).filter((file) => file && file.type.startsWith('image/'));
+    if (!list.length) {
+      viewsSession.progress = '没有可上传的图片（只支持 JPG / PNG / WebP）。';
+      paintViewsModal();
+      return;
+    }
+    viewsSession.busy = true;
+    viewsSession.proposal = null;
+    let done = 0;
+    let failed = 0;
+    const failedNames = [];
+    for (let i = 0; i < list.length; i += 1) {
+      const file = list[i];
+      viewsSession.progress = `正在上传 ${i + 1}/${list.length}：${file.name}`;
+      paintViewsModal();
+      try {
+        const prepared = await prepareViewFile(file);
+        const query = new URLSearchParams({
+          angle: guessViewAngle(file.name),
+          name: file.name,
+          w: String(prepared.width),
+          h: String(prepared.height)
+        });
+        const data = await window.MeowAPI.upload(`/api/cats/${viewsSession.catId}/views?${query}`, prepared.blob);
+        if (!viewsSession) return;
+        viewsSession.items = data.views || viewsSession.items;
+        viewsSession.bytes = data.bytes || 0;
+        viewsSession.recon = data.recon || null;
+        done += 1;
+      } catch (err) {
+        failed += 1;
+        failedNames.push(file.name);
+        console.warn('上传失败', file.name, err.message);
+      }
+    }
+    if (!viewsSession) return;
+    viewsSession.busy = false;
+    const heic = failedNames.some((name) => /\.heic$/i.test(name));
+    const total = viewsSession.items.length;
+    viewsSession.progress = failed
+      ? `上传完成：成功 ${done} 张，失败 ${failed} 张${heic ? '（HEIC 浏览器解不开，先在相册里转成 JPG）' : '（可能不是图片或文件已损坏）'}`
+      : `上传完成：本批 ${done} 张，共 ${total} 张`;
+    paintViewsModal();
+    // 侧栏按钮上的张数要跟着变
+    const cat = catById(viewsSession.catId);
+    if (cat) cat.viewCount = viewsSession.items.length;
+    save();
+  }
+
+  async function deleteView(viewId) {
+    if (!viewsSession) return;
+    viewsSession.busy = true;
+    viewsSession.progress = '正在删除…';
+    paintViewsModal();
+    try {
+      const data = await window.MeowAPI.del(`/api/cats/${viewsSession.catId}/views/${viewId}`);
+      if (!viewsSession) return;
+      viewsSession.items = data.views || [];
+      viewsSession.bytes = data.bytes || 0;
+      viewsSession.recon = data.recon || null;
+      viewsSession.progress = '';
+    } catch (err) {
+      viewsSession.progress = `删除失败：${err.message}`;
+    } finally {
+      if (viewsSession) viewsSession.busy = false;
+      paintViewsModal();
+    }
+  }
+
+  async function setViewAngle(viewId, angle) {
+    if (!viewsSession) return;
+    const local = viewsSession.items.find((view) => view.id === viewId);
+    if (local) local.angle = angle;
+    paintViewsModal();
+    try {
+      await window.MeowAPI.patch(`/api/cats/${viewsSession.catId}/views/${viewId}`, { angle });
+    } catch (err) {
+      if (viewsSession) viewsSession.progress = `视角保存失败：${err.message}`;
+      paintViewsModal();
+    }
+  }
+
+  function loadImageElement(src) {
+    return new Promise((resolve, reject) => {
+      const image = new Image();
+      image.onload = () => resolve(image);
+      image.onerror = () => reject(new Error('图片加载失败'));
+      image.src = src;
+    });
+  }
+
+  async function calibrateCoatFromViews() {
+    if (!viewsSession || viewsSession.busy) return;
+    if (!window.__meow3dCalibrateViews) {
+      viewsSession.progress = '3D 模块还没加载完，稍后再试。';
+      paintViewsModal();
+      return;
+    }
+    viewsSession.busy = true;
+    viewsSession.proposal = null;
+    viewsSession.progress = '正在逐张分析毛色…';
+    paintViewsModal();
+    const images = [];
+    const views = viewsSession.items.slice(0, 30);
+    for (let i = 0; i < views.length; i += 1) {
+      viewsSession.progress = `正在读取 ${i + 1}/${views.length}…`;
+      paintViewsModal();
+      try {
+        images.push(await loadImageElement(views[i].url));
+      } catch (_) { /* 单张失败就跳过 */ }
+    }
+    if (!viewsSession) return;
+    const cat = catById(viewsSession.catId);
+    // 逐张做白平衡归一化，再取中位数：四张照片的色温各不相同，直接平均会得到一团泥褐色
+    const result = images.length && window.__meow3dCalibrateViews(images, cat);
+    if (!result) {
+      viewsSession.busy = false;
+      viewsSession.progress = '这些照片都没分析出结果，换几张光线好一点的试试。';
+      paintViewsModal();
+      return;
+    }
+    viewsSession.proposal = {
+      palette: result.palette,
+      pattern: result.pattern,
+      patternLabel: (window.__meow3dPatternLabel && window.__meow3dPatternLabel(result.pattern)) || result.pattern,
+      bib: result.bib,
+      samples: result.samples,
+      balanced: result.balanced
+    };
+    viewsSession.busy = false;
+    viewsSession.progress = `分析完成：用了 ${result.samples} 张照片，其中 ${result.balanced} 张的白平衡可信。`;
+    paintViewsModal();
+  }
+
+  async function applyCoatProposal() {
+    if (!viewsSession || !viewsSession.proposal) return;
+    const cat = catById(viewsSession.catId);
+    if (!cat) return;
+    const profile = {
+      palette: viewsSession.proposal.palette,
+      pattern: viewsSession.proposal.pattern,
+      bib: viewsSession.proposal.bib,
+      samples: viewsSession.proposal.samples,
+      balanced: viewsSession.proposal.balanced,
+      source: 'views'
+    };
+    cat.coatProfile = profile;
+    cat.viewCount = viewsSession.items.length;
+    save();
+    viewsSession.proposal = null;
+    viewsSession.progress = '已应用到 3D 头像。不喜欢就点上面的毛色按钮换回预设。';
+    paintViewsModal();
+    try {
+      await window.MeowAPI.patch(`/api/cats/${cat.id}`, { coatProfile: profile });
+    } catch (err) {
+      viewsSession.progress = `本地已生效，但保存失败：${err.message}`;
+      paintViewsModal();
+    }
+    if (window.__meow3dCoat) window.__meow3dCoat('auto');
+  }
+
+  async function requestRebuild() {
+    if (!viewsSession) return;
+    const cat = catById(viewsSession.catId);
+    if (!cat) return;
+    viewsSession.busy = true;
+    viewsSession.progress = '正在提交…';
+    paintViewsModal();
+    const recon = {
+      status: 'queued',
+      updatedAt: new Date().toISOString(),
+      samples: viewsSession.items.length,
+      angles: VIEW_CORE_ANGLES.filter(([key]) => viewsSession.items.some((view) => view.angle === key)).map(([key]) => key),
+      note: '素材已就绪：多视角重建需要离线跑（COLMAP 标定 + 3DGS 训练），页面只负责收集和排队。'
+    };
+    cat.recon = recon;
+    cat.viewCount = viewsSession.items.length;
+    save();
+    try {
+      await window.MeowAPI.patch(`/api/cats/${cat.id}`, { recon });
+      viewsSession.recon = recon;
+      viewsSession.progress = `已排队 ${recon.samples} 张（覆盖 ${recon.angles.length} 个视角）。素材在 data/views/${cat.id}/，含 manifest.json。`;
+    } catch (err) {
+      viewsSession.progress = `提交失败：${err.message}`;
+    } finally {
+      if (viewsSession) viewsSession.busy = false;
+      paintViewsModal();
+    }
+  }
+
   function cropModalHtml() {
     if (!cropSession) return '';
     return `<div class="modal-backdrop">
@@ -1075,15 +1581,6 @@
         </div>
       </div>
     </div>`;
-  }
-
-  function inputField(key, label, type, value) {
-    const extra = type === 'number' ? ' min="0" step="0.1"' : '';
-    return `<div class="field"><label for="field-${key}">${label}</label><input id="field-${key}" data-field="${key}" type="${type}" value="${escapeHtml(value)}"${extra}></div>`;
-  }
-
-  function genderSelect(value) {
-    return `<div class="field"><label for="field-gender">性别</label><select id="field-gender" data-field="gender"><option value="女" ${value === '女' ? 'selected' : ''}>女生</option><option value="男" ${value === '男' ? 'selected' : ''}>男生</option></select></div>`;
   }
 
   function metricInput(key, label, value, step) {
@@ -1127,31 +1624,61 @@
     const cat = catById(state.currentCatId);
     const score = healthScore(cat);
     const remark = healthBullets(cat);
+    const receivedBullets = (state.receivedBullets || []).map((bullet) => ({
+      title: bullet.kind === 'roast' ? '吐槽' : '夸赞',
+      text: `${bullet.nickname}：${bullet.text}`,
+      color: bullet.color || '#ffd166'
+    }));
+    const profileBullets = remark.bullets
+      .map((bullet) => ({ ...bullet, color: remark.kind === 'bad' ? '#e8590c' : '#ffd166' }))
+      .concat(receivedBullets);
     return `<div class="page-title">
       <div><h1>猫咪档案</h1><p>${escapeHtml(cat.breed)} · 最近同步 ${escapeHtml(state.lastSync)}</p></div>
       <span class="today-chip">健康数据已同步 ${cat.healthSyncs || 0} 次</span>
     </div>
     <section class="profile-layout">
       <div class="card cat-card">
-        <div class="cat-stage" data-photo-click="avatar" data-id="${cat.id}" title="点击上传或更换头像">${catSvg(cat)}<canvas class="cat-3d-canvas" data-3d-cat data-id="${cat.id}"></canvas><span class="photo-hint">${icon('camera')}</span></div>
+        <div class="cat-stage" data-photo-click="avatar" data-id="${cat.id}" title="点猫咪切换状态、拖动移动位置；右下角相机可更换照片">${catSvg(cat)}<canvas class="cat-3d-canvas" data-3d-cat data-id="${cat.id}"></canvas><span class="photo-hint" title="上传或更换猫咪照片">${icon('camera')}</span></div>
+        <div class="cat-3d-panel" data-cat3d-panel data-id="${cat.id}">
+          <div class="cat3d-render">
+            <span class="cat3d-render-label">形象</span>
+            <div class="cat3d-seg">
+              <button class="cat3d-btn" data-action="cat3d-render" data-id="photo" title="用上传的照片抠图做成桌面宠物，最像本猫">真实头像</button>
+              <button class="cat3d-btn" data-action="cat3d-render" data-id="model" title="程序化 3D 手办，可缩放、旋转、跑酷">3D 手办</button>
+            </div>
+            <span class="cat3d-render-note" data-cat3d-render-note></span>
+          </div>
+          <div class="pet2d-states">
+            <span class="cat3d-render-label">状态</span>
+            ${[['idle', '普通'], ['happy', '开心'], ['sleep', '睡觉']].map(([value, label]) => `<button class="cat3d-btn" data-action="pet-state" data-id="${value}" title="切换到${label}">${label}</button>`).join('')}
+            <span class="cat3d-tip">点猫咪切换 · 拖动移动</span>
+          </div>
+          <div class="cat3d-modes">
+            ${[['auto', '自动'], ['idle', '发呆'], ['lick', '舔毛'], ['scratch', '磨爪'], ['parkour', '跑酷'], ['toilet', '上厕所'], ['wand', '逗猫棒'], ['drink', '喝水'], ['sleep', '睡觉'], ['taunt', '撅屁股']].map(([value, label]) => `<button class="cat3d-btn ${value === 'auto' ? 'active' : ''}" data-action="cat3d-mode" data-id="${value}" title="${label}">${label}</button>`).join('')}
+          </div>
+          <div class="cat3d-coat" data-cat3d-coat></div>
+          <div class="cat3d-views-row">
+            <button class="cat3d-btn cat3d-views-btn" data-action="views-open" data-id="${cat.id}" title="上传同一只猫的多角度照片，用于三维重建">
+              多视角照片${cat.viewCount ? ` · ${cat.viewCount}` : ''}
+            </button>
+            <span class="cat3d-tip">${cat.recon && cat.recon.status === 'queued' ? '素材已排队，等待重建' : '3 张起，不同角度'}</span>
+          </div>
+          <div class="cat3d-tools">
+            <span class="cat3d-tip">滚轮缩放 · 拖动旋转 · Shift+拖动移动 · 仅在框内活动</span>
+            <div class="cat3d-zoom-row">
+              <button class="cat3d-btn" data-action="cat3d-zoom" data-id="-0.15" title="缩小">−</button>
+              <span class="cat3d-zoom-label" data-cat3d-zoom-label>1.0×</span>
+              <button class="cat3d-btn" data-action="cat3d-zoom" data-id="0.15" title="放大">＋</button>
+              <button class="cat3d-btn" data-action="cat3d-reset" title="恢复默认视角">重置</button>
+            </div>
+          </div>
+        </div>
         <div class="cat-cover" data-photo-click="background" data-id="${cat.id}" title="点击上传或更换主页背景" style="${cat.background ? `background-image:url('${cat.background}')` : ''}"><span class="cover-hint">${icon('upload')}主页背景</span></div>
         <div class="cat-card-body">
-          <div class="cat-name-row"><h2>${escapeHtml(cat.name)}</h2><span class="cat-tag">${cat.gender === '男' ? '男生' : '女生'} · ${cat.age}岁</span></div>
-          <div class="cat-meta"><span>${escapeHtml(cat.breed)}</span><span>体重 ${cat.weight} kg</span><span>每次同步约奖励 ${healthReward(cat)} 喵星币</span></div>
-          <div class="cat-edit">
-            ${inputField('name', '名字', 'text', cat.name)}
-            ${inputField('age', '年龄', 'number', cat.age)}
-            ${inputField('birthDate', '出生日期', 'date', cat.birthDate || '')}
-            ${inputField('breed', '品种', 'text', cat.breed)}
-            ${genderSelect(cat.gender)}
-          </div>
-          <div class="privacy-row">
-            <label class="checkline"><input type="checkbox" data-field="visible" ${cat.visible ? 'checked' : ''}>向其他家长展示档案</label>
-            <label class="checkline"><input type="checkbox" data-field="neutered" ${cat.neutered ? 'checked' : ''}>已绝育</label>
-          </div>
+          <div class="cat-name-row"><h2>${escapeHtml(cat.name)}</h2><span class="cat-tag">${cat.gender === '男' ? '男生' : '女生'}</span></div>
+          <div class="cat-meta"><span>${escapeHtml(cat.breed)}</span><span>${cat.age}岁</span></div>
           <div class="cat-admin-row">
-            <button class="primary" data-action="save-cat" ${cat.id === 'placeholder' ? 'disabled' : ''}>保存档案</button>
-            <button data-action="add-cat">添加猫咪</button>
+            <button class="primary" data-action="add-cat">添加猫咪</button>
           </div>
           <div class="avatar-row">
             ${state.cats.map((item) => `<button class="avatar-btn ${state.currentCatId === item.id ? 'active' : ''}" data-action="select-cat" data-id="${item.id}" aria-label="选择${escapeHtml(item.name)}">${catSvg(item)}</button>`).join('')}
@@ -1165,9 +1692,7 @@
             <h3>隔壁村弹幕</h3>
             <span class="muted">${remark.bullets.length} 条来信</span>
           </div>
-          <div class="bullet-stage">
-            ${remark.bullets.length ? preparedBullets(remark.bullets).map((bullet, renderIndex) => `<div class="bullet ${bullet.stay ? 'stay' : 'pass'}" style="--top:${10 + (renderIndex % 3) * 30}px; --duration:${bullet.duration}s; --delay:${bullet.delay}s; --park:${bullet.park}">${escapeHtml(bullet.title)}：${linkifyNeighbor(bullet.text)}</div>`).join('') : '<div class="bullet-empty">今天没有弹幕</div>'}
-          </div>
+          ${bulletStageHtml(profileBullets, '今天没有弹幕')}
         </div>
         <div class="card health-panel">
           <div class="panel-head">
@@ -1487,18 +2012,11 @@ function renderUserHome() {
         </div>
         <div class="card bullet-board good">
           <div class="bullet-board-head"><h3>弹幕留言</h3><span class="muted">${bullets.length} 条</span></div>
-          <div class="bullet-stage">
-            ${bullets.length ? preparedBullets(bullets.map((bullet, index) => ({
-              title: bullet.kind === 'roast' ? '吐槽' : '夸赞',
-              text: `${bullet.nickname}：${bullet.text}`,
-              stay: false,
-              park: '0%',
-              duration: 16 + (index % 3) * 2,
-              delay: (index % 3) * 2,
-              sourceIndex: index,
-              color: bullet.color || '#64767f'
-            }))).map((bullet, index) => `<div class="bullet ${bullet.stay ? 'stay' : 'pass'}" style="--top:${10 + (index % 3) * 30}px; --duration:${bullet.duration}s; --delay:${bullet.delay}s; --park:${bullet.park}; color:${bullet.color || ''}">${escapeHtml(bullet.title)}：${escapeHtml(bullet.text)}</div>`).join('') : '<div class="bullet-empty">还没有人留言，来发第一条弹幕吧。</div>'}
-          </div>
+          ${bulletStageHtml(bullets.map((bullet) => ({
+            title: bullet.kind === 'roast' ? '吐槽' : '夸赞',
+            text: `${bullet.nickname}：${bullet.text}`,
+            color: bullet.color || '#ffd166'
+          })), '还没有人留言，来发第一条弹幕吧。', true)}
           <div class="bullet-compose">
             <select data-bullet-kind aria-label="弹幕类型"><option value="praise">夸赞</option><option value="roast">吐槽</option></select>
             <textarea data-bullet-text id="bullet-text" placeholder="留一句嘴贱或暖心的弹幕">${escapeHtml(state.bulletDraft || '')}</textarea>
@@ -1619,6 +2137,7 @@ function renderUserHome() {
     const shop3D = state.shop3DId ? findShopById(state.shop3DId) : null;
     app.innerHTML = `${headerHtml()}${neighborMode ? '' : navHtml()}${state.message ? `<div class="toast ${state.toastKind === 'error' ? 'toast-error' : ''}">${state.toastKind === 'error' ? icon('alert') : ''}${escapeHtml(state.message)}</div>` : ''}<main class="page">${neighborMode ? '' : statsHtml()}${renderPage()}</main>${state.shop3DId ? `<div class="modal-backdrop"><div class="shop-3d-modal"><div class="shop-3d-head"><strong>${shop3D ? escapeHtml(shop3D.name || shop3D.displayName) : ''} 3D漫游</strong><button data-action="close-shop-3d">关闭</button></div><canvas class="shop-3d-canvas" data-shop-3d data-id="${state.shop3DId}"></canvas><p class="muted">方向键 / WASD 控制猫咪漫游，点击封面可更新门店空间。</p></div></div>` : ''}${cropModalHtml()}`;
     syncCropTransform();
+    startBulletQueues();
     if (window.__refreshMeow3D) window.__refreshMeow3D();
   }
 
@@ -1743,6 +2262,56 @@ function renderUserHome() {
 
   function handleAction(action, id, extra) {
     const cat = catById(state.currentCatId);
+    // 3D 头像控制不重渲染页面，否则 canvas 会被替换、场景状态被重置
+    if (action === 'cat3d-mode') {
+      if (window.__meow3dSetMode) window.__meow3dSetMode(id);
+      return;
+    } else if (action === 'cat3d-zoom') {
+      if (window.__meow3dZoom) window.__meow3dZoom(Number(id) || 0);
+      return;
+    } else if (action === 'cat3d-reset') {
+      if (window.__meow3dReset) window.__meow3dReset();
+      return;
+    } else if (action === 'cat3d-coat') {
+      if (window.__meow3dCoat) window.__meow3dCoat(id);
+      return;
+    } else if (action === 'cat3d-render') {
+      if (window.__meowPetMode) window.__meowPetMode(id);
+      return;
+    } else if (action === 'pet-state') {
+      if (window.__meowPetState) window.__meowPetState(id);
+      return;
+    } else if (action === 'views-open') {
+      openViews(id || state.currentCatId);
+      return;
+    } else if (action === 'views-close') {
+      closeViews();
+      return;
+    } else if (action === 'views-pick') {
+      const picker = document.createElement('input');
+      picker.type = 'file';
+      picker.accept = 'image/*';
+      picker.multiple = true;
+      picker.addEventListener('change', () => uploadViewFiles(picker.files));
+      picker.click();
+      return;
+    } else if (action === 'views-delete') {
+      deleteView(id);
+      return;
+    } else if (action === 'views-calibrate') {
+      calibrateCoatFromViews();
+      return;
+    } else if (action === 'views-apply') {
+      applyCoatProposal();
+      return;
+    } else if (action === 'views-discard') {
+      if (viewsSession) viewsSession.proposal = null;
+      paintViewsModal();
+      return;
+    } else if (action === 'views-rebuild') {
+      requestRebuild();
+      return;
+    }
     if (action === 'crop-confirm') {
       confirmCrop();
     } else if (action === 'crop-cancel') {
@@ -1801,9 +2370,6 @@ function renderUserHome() {
       state.message = '';
     } else if (action === 'save-add-cat') {
       saveNewCat();
-      return;
-    } else if (action === 'save-cat') {
-      saveCurrentCat();
       return;
     } else if (action === 'save-place') {
       saveCustomPlace();
@@ -1911,38 +2477,6 @@ function renderUserHome() {
     }
     save();
     render();
-  }
-
-  async function saveCurrentCat() {
-    const cat = catById(state.currentCatId);
-    if (!cat || cat.id === 'placeholder') return;
-    setBusy('正在保存档案…');
-    try {
-      const data = await window.MeowAPI.patch(`/api/cats/${cat.id}`, {
-        name: cat.name,
-        breed: cat.breed,
-        gender: cat.gender,
-        age: Number(cat.age) || 0,
-        birthDate: cat.birthDate || '',
-        visible: !!cat.visible,
-        neutered: !!cat.neutered,
-        weight: Number(cat.weight) || 0,
-        poop: Number(cat.poop) || 0,
-        pee: Number(cat.pee) || 0,
-        protein: Number(cat.protein) || 0,
-        avatar: cat.avatar || '',
-        background: cat.background || ''
-      });
-      Object.assign(cat, data.cat);
-      state.balance = state.cats.reduce((sum, item) => sum + (item.balance || 0), 0);
-      state.message = `${cat.name} 的档案已保存。`;
-      save();
-    } catch (err) {
-      state.message = err.message;
-    } finally {
-      setBusy('');
-      render();
-    }
   }
 
   function inferSceneKey(name) {
@@ -2561,6 +3095,12 @@ function renderUserHome() {
   }
 
   document.addEventListener('click', (event) => {
+    // 点弹窗遮罩关闭（点弹窗本体不关）
+    const viewsBackdrop = event.target.closest('[data-views-modal]');
+    if (viewsBackdrop && !event.target.closest('.views-modal')) {
+      closeViews();
+      return;
+    }
     const photoClick = event.target.closest('[data-photo-click]');
     if (photoClick) {
       openFilePicker(photoClick.dataset.photoClick, photoClick.dataset.id);
@@ -2572,6 +3112,11 @@ function renderUserHome() {
   });
 
   document.addEventListener('change', (event) => {
+    const angleSelect = event.target.closest('[data-views-angle]');
+    if (angleSelect) {
+      setViewAngle(angleSelect.dataset.id, angleSelect.value);
+      return;
+    }
     const shopName = event.target.closest('[data-shop-name]');
     if (shopName) {
       state.shopDraft = state.shopDraft || {};
@@ -2665,6 +3210,32 @@ function renderUserHome() {
     dragStart = null;
   });
 
+  // 多视角弹窗：拖拽上传。弹窗开着时全页都要 preventDefault，
+  // 否则拖到弹窗外浏览器会直接打开这张图片
+  ['dragenter', 'dragover'].forEach((type) => {
+    document.addEventListener(type, (event) => {
+      if (!viewsSession) return;
+      event.preventDefault();
+      const zone = event.target.closest && event.target.closest('[data-views-drop]');
+      if (zone) zone.classList.add('dragging');
+    });
+  });
+
+  document.addEventListener('dragleave', (event) => {
+    if (!viewsSession) return;
+    const zone = event.target.closest && event.target.closest('[data-views-drop]');
+    if (zone) zone.classList.remove('dragging');
+  });
+
+  document.addEventListener('drop', (event) => {
+    if (!viewsSession) return;
+    event.preventDefault();
+    const zone = event.target.closest && event.target.closest('[data-views-drop]');
+    if (zone) zone.classList.remove('dragging');
+    const files = event.dataTransfer && event.dataTransfer.files;
+    if (files && files.length) uploadViewFiles(files);
+  });
+
   window.addEventListener('popstate', () => {
     routeFromLocation();
   });
@@ -2679,3 +3250,4 @@ function renderUserHome() {
 
   initApp();
 })();
+

@@ -4,6 +4,10 @@ const path = require('path');
 
 const DATA_DIR = path.join(__dirname, 'data');
 const DB_FILE = path.join(DATA_DIR, 'db.json');
+const VIEW_DIR = path.join(DATA_DIR, 'views');
+const VIEW_MAX_BYTES = 14 * 1024 * 1024;
+const VIEW_MAX_COUNT = 60;
+const VIEW_ANGLES = ['front', 'left', 'right', 'back', 'top', 'bottom', 'face', 'body', 'extra'];
 
 const REACTION_TYPES = ['亲亲', '摸肚皮', '摸爪', '咬妙脆角', '弹QQ'];
 
@@ -228,6 +232,135 @@ function saveDb(db) {
   fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2), 'utf8');
 }
 
+/* ---------------- 多视角照片（3D 重建素材） ---------------- *
+ * 单张图片走原始二进制 body，不塞进 JSON：
+ * 原来的 readBody 是「字符串累加 + 超 5MB 截断」，base64 塞进去会被悄悄截断成坏图。
+ * 文件落在 data/views/<catId>/ 下，静态目录本来就能直接访问，URL 即文件路径。 */
+function readBinary(req, limit = VIEW_MAX_BYTES) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    let size = 0;
+    let failed = false;
+    req.on('data', (chunk) => {
+      if (failed) return;
+      size += chunk.length;
+      if (size > limit) {
+        failed = true;
+        reject(new Error(`单张图片不能超过 ${Math.round(limit / 1024 / 1024)}MB`));
+        return;
+      }
+      chunks.push(chunk);
+    });
+    req.on('end', () => { if (!failed) resolve(Buffer.concat(chunks)); });
+    req.on('error', (err) => { if (!failed) reject(err); });
+  });
+}
+
+function sniffImage(buffer) {
+  if (!buffer || buffer.length < 12) return '';
+  if (buffer[0] === 0xff && buffer[1] === 0xd8) return 'jpg';
+  if (buffer.slice(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) return 'png';
+  if (buffer.slice(0, 4).toString('ascii') === 'RIFF' && buffer.slice(8, 12).toString('ascii') === 'WEBP') return 'webp';
+  return '';
+}
+
+function safeViewName(raw) {
+  const text = String(raw || '').replace(/[^\w.\-\u4e00-\u9fa5]+/g, '_').slice(0, 60);
+  return text || 'view';
+}
+
+function catViewDir(catId) {
+  const safeId = String(catId).replace(/[^\w-]/g, '');
+  return path.join(VIEW_DIR, safeId);
+}
+
+function catViewsOf(cat) {
+  if (!Array.isArray(cat.views)) cat.views = [];
+  return cat.views;
+}
+
+function viewSummary(cat) {
+  const views = catViewsOf(cat);
+  const angles = {};
+  views.forEach((view) => { angles[view.angle] = (angles[view.angle] || 0) + 1; });
+  return {
+    views,
+    count: views.length,
+    bytes: views.reduce((sum, view) => sum + (view.size || 0), 0),
+    angles,
+    recon: cat.recon || null
+  };
+}
+
+async function handleViewUpload(req, res, url, db, user, catId) {
+  if (!user) return json(res, 401, { error: '请先登录。' });
+  const cat = db.cats.find((item) => item.id === catId);
+  if (!cat) return json(res, 404, { error: '猫咪不存在。' });
+  if (cat.ownerId !== user.id) return json(res, 403, { error: '只能给自己的猫咪上传照片。' });
+  if (catViewsOf(cat).length >= VIEW_MAX_COUNT) {
+    return json(res, 400, { error: `最多 ${VIEW_MAX_COUNT} 张，请先删掉一些再上传。` });
+  }
+
+  let buffer;
+  try {
+    buffer = await readBinary(req);
+  } catch (err) {
+    return json(res, 413, { error: err.message || '图片太大。' });
+  }
+  if (!buffer || !buffer.length) return json(res, 400, { error: '没有收到图片数据。' });
+  const ext = sniffImage(buffer);
+  if (!ext) return json(res, 415, { error: '只支持 JPG / PNG / WebP 图片。' });
+
+  const dir = catViewDir(cat.id);
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  const id = uid('view');
+  const fileName = `${Date.now().toString(36)}-${id.slice(-4)}.${ext}`;
+  fs.writeFileSync(path.join(dir, fileName), buffer);
+
+  const angleRaw = String(url.searchParams.get('angle') || 'extra');
+  const angle = VIEW_ANGLES.includes(angleRaw) ? angleRaw : 'extra';
+  const view = {
+    id,
+    url: `/data/views/${cat.id}/${fileName}`,
+    angle,
+    name: safeViewName(url.searchParams.get('name')),
+    size: buffer.length,
+    width: Number(url.searchParams.get('w')) || 0,
+    height: Number(url.searchParams.get('h')) || 0,
+    at: isoNow()
+  };
+  catViewsOf(cat).push(view);
+  cat.recon = {
+    status: 'collecting',
+    updatedAt: isoNow(),
+    note: `已收集 ${cat.views.length} 张多视角照片，等待重建`
+  };
+  saveDb(db);
+  writeViewManifest(cat);
+  return json(res, 200, { view, ...viewSummary(cat) });
+}
+
+function writeViewManifest(cat) {
+  const dir = catViewDir(cat.id);
+  if (!fs.existsSync(dir)) return;
+  const manifest = {
+    catId: cat.id,
+    catName: cat.name,
+    breed: cat.breed,
+    updatedAt: isoNow(),
+    count: catViewsOf(cat).length,
+    angles: VIEW_ANGLES.reduce((acc, key) => {
+      const list = catViewsOf(cat).filter((view) => view.angle === key);
+      if (list.length) acc[key] = list.map((view) => path.basename(view.url));
+      return acc;
+    }, {}),
+    views: catViewsOf(cat)
+  };
+  try {
+    fs.writeFileSync(path.join(dir, 'manifest.json'), JSON.stringify(manifest, null, 2), 'utf8');
+  } catch (_) { /* 写清单失败不影响上传本身 */ }
+}
+
 function normalizeReactions(post) {
   const source = post.reactions || {};
   const result = {};
@@ -318,7 +451,10 @@ function publicCat(cat, db) {
     pee: cat.pee,
     protein: cat.protein,
     healthSyncs: cat.healthSyncs,
-    balance: cat.balance
+    balance: cat.balance,
+    viewCount: Array.isArray(cat.views) ? cat.views.length : 0,
+    recon: cat.recon || null,
+    coatProfile: cat.coatProfile || null
   };
 }
 
@@ -584,9 +720,16 @@ function shopVisit(db, reqUser, cat, shop) {
 async function handleApi(req, res, url) {
   const db = loadDb();
   const user = authUser(db, req);
-  const body = await readBody(req);
   const parts = url.pathname.split('/').filter(Boolean);
   const route = parts.map(decodeURIComponent).join('/');
+
+  // 图片上传走原始二进制：必须在 readBody 之前拦下来，否则流会被当成 JSON 读空
+  const viewUploadMatch = route.match(/^api\/cats\/([^/]+)\/views$/);
+  if (viewUploadMatch && req.method === 'POST' && /^image\//.test(String(req.headers['content-type'] || ''))) {
+    return handleViewUpload(req, res, url, db, user, viewUploadMatch[1]);
+  }
+
+  const body = await readBody(req);
 
   if (route === 'api/auth/send-code' && req.method === 'POST') {
     const phone = String(body.phone || '').trim();
@@ -735,6 +878,11 @@ async function handleApi(req, res, url) {
     if (body.poop !== undefined) cat.poop = Number(body.poop) || 0;
     if (body.pee !== undefined) cat.pee = Number(body.pee) || 0;
     if (body.protein !== undefined) cat.protein = Number(body.protein) || 0;
+    if (body.coatProfile !== undefined) {
+      const profile = body.coatProfile;
+      cat.coatProfile = profile && profile.palette && profile.palette.base ? profile : null;
+    }
+    if (body.recon !== undefined) cat.recon = body.recon || null;
     saveDb(db);
     return json(res, 200, { cat: publicCat(cat, db) });
   }
@@ -954,6 +1102,54 @@ async function handleApi(req, res, url) {
     return json(res, 200, { ...result, post: postPayload(result.post, db), balance: cat.balance });
   }
 
+  /* ---- 多视角照片：列表 / 删除 ---- */
+  if (viewUploadMatch && req.method === 'GET') {
+    if (!user) return json(res, 401, { error: '请先登录。' });
+    const cat = db.cats.find((item) => item.id === viewUploadMatch[1]);
+    if (!cat) return json(res, 404, { error: '猫咪不存在。' });
+    if (cat.ownerId !== user.id) return json(res, 403, { error: '只能查看自己猫咪的照片。' });
+    return json(res, 200, viewSummary(cat));
+  }
+
+  const viewDeleteMatch = route.match(/^api\/cats\/([^/]+)\/views\/([^/]+)$/);
+  if (viewDeleteMatch && req.method === 'DELETE') {
+    if (!user) return json(res, 401, { error: '请先登录。' });
+    const cat = db.cats.find((item) => item.id === viewDeleteMatch[1]);
+    if (!cat) return json(res, 404, { error: '猫咪不存在。' });
+    if (cat.ownerId !== user.id) return json(res, 403, { error: '只能删除自己猫咪的照片。' });
+    const views = catViewsOf(cat);
+    const index = views.findIndex((view) => view.id === viewDeleteMatch[2]);
+    if (index < 0) return json(res, 404, { error: '照片不存在。' });
+    const [removed] = views.splice(index, 1);
+    try {
+      const filePath = path.join(VIEW_DIR, path.basename(path.dirname(removed.url)), path.basename(removed.url));
+      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+    } catch (_) { /* 文件已不在也不影响记录删除 */ }
+    if (!views.length) {
+      cat.recon = null;
+    } else {
+      cat.recon = { status: 'collecting', updatedAt: isoNow(), note: `已收集 ${views.length} 张多视角照片，等待重建` };
+    }
+    saveDb(db);
+    writeViewManifest(cat);
+    return json(res, 200, viewSummary(cat));
+  }
+
+  const viewPatchMatch = route.match(/^api\/cats\/([^/]+)\/views\/([^/]+)$/);
+  if (viewPatchMatch && req.method === 'PATCH') {
+    if (!user) return json(res, 401, { error: '请先登录。' });
+    const cat = db.cats.find((item) => item.id === viewPatchMatch[1]);
+    if (!cat) return json(res, 404, { error: '猫咪不存在。' });
+    if (cat.ownerId !== user.id) return json(res, 403, { error: '只能修改自己猫咪的照片。' });
+    const view = catViewsOf(cat).find((item) => item.id === viewPatchMatch[2]);
+    if (!view) return json(res, 404, { error: '照片不存在。' });
+    const angle = String(body.angle || '');
+    if (VIEW_ANGLES.includes(angle)) view.angle = angle;
+    saveDb(db);
+    writeViewManifest(cat);
+    return json(res, 200, viewSummary(cat));
+  }
+
   const placeImageMatch = route.match(/^api\/places\/([^/]+)\/fetch-image$/);
   if (placeImageMatch && req.method === 'GET') {
     const place = db.places.find((item) => item.id === placeImageMatch[1]);
@@ -1005,6 +1201,7 @@ async function handleApi(req, res, url) {
       cats: myCats.map((cat) => publicCat(cat, db)),
       balance: myCats.reduce((sum, cat) => sum + (cat.balance || 0), 0),
       posts: db.posts.filter((post) => post.ownerId === user.id).map((post) => postPayload(post, db)),
+      receivedBullets: db.bullets.filter((bullet) => myCats.some((cat) => cat.id === bullet.targetCatId)),
       trips: db.trips.filter((trip) => trip.ownerId === user.id),
       followers: countFollowers(db, user.id),
       following: countFollowing(db, user.id)

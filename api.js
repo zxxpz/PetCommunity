@@ -40,10 +40,28 @@
     return data;
   }
 
+  // 图片走原始二进制：JSON + base64 在服务端会被 5MB 截断成坏图
+  async function upload(path, blob, extraHeaders) {
+    const headers = { 'Content-Type': blob.type || 'application/octet-stream' };
+    const token = getToken();
+    if (token) headers.Authorization = `Bearer ${token}`;
+    Object.assign(headers, extraHeaders || {});
+    const response = await fetch(path, { method: 'POST', headers, body: blob });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const err = new Error(data.error || '上传失败');
+      err.status = response.status;
+      err.data = data;
+      throw err;
+    }
+    return data;
+  }
+
   window.MeowAPI = {
     getToken,
     setToken,
     request,
+    upload,
     get: (path) => request('GET', path),
     post: (path, body) => request('POST', path, body || {}),
     patch: (path, body) => request('PATCH', path, body || {}),
