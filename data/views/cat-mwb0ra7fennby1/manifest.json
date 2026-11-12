@@ -1,0 +1,57 @@
+{
+  "catId": "cat-mwb0ra7fennby1",
+  "catName": "喵豆豆",
+  "breed": "蓝金渐层",
+  "updatedAt": "2026-11-12T17:26:37.001Z",
+  "count": 4,
+  "angles": {
+    "extra": [
+      "mwdtl2ca-k3op.jpg",
+      "mwdtl2dk-09wm.jpg",
+      "mwdtl2ff-z72l.jpg",
+      "mwdtl2gx-wgm6.jpg"
+    ]
+  },
+  "views": [
+    {
+      "id": "view-mwdtl2ca5uk3op",
+      "url": "/data/views/cat-mwb0ra7fennby1/mwdtl2ca-k3op.jpg",
+      "angle": "extra",
+      "name": "1.jpg",
+      "size": 307886,
+      "width": 1200,
+      "height": 1600,
+      "at": "2026-11-12T17:26:36.827Z"
+    },
+    {
+      "id": "view-mwdtl2dk7909wm",
+      "url": "/data/views/cat-mwb0ra7fennby1/mwdtl2dk-09wm.jpg",
+      "angle": "extra",
+      "name": "2.jpg",
+      "size": 67072,
+      "width": 1279,
+      "height": 1348,
+      "at": "2026-11-12T17:26:36.873Z"
+    },
+    {
+      "id": "view-mwdtl2ffcoz72l",
+      "url": "/data/views/cat-mwb0ra7fennby1/mwdtl2ff-z72l.jpg",
+      "angle": "extra",
+      "name": "3.jpg",
+      "size": 129770,
+      "width": 739,
+      "height": 1600,
+      "at": "2026-11-12T17:26:36.940Z"
+    },
+    {
+      "id": "view-mwdtl2gxfrwgm6",
+      "url": "/data/views/cat-mwb0ra7fennby1/mwdtl2gx-wgm6.jpg",
+      "angle": "extra",
+      "name": "猫.jpg",
+      "size": 234512,
+      "width": 1600,
+      "height": 1200,
+      "at": "2026-11-12T17:26:36.995Z"
+    }
+  ]
+}

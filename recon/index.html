@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>2D → 3D 重建工作台 · 喵星旅行社</title>
+  <link rel="stylesheet" href="./styles.css">
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "/node_modules/three/build/three.module.js",
+      "three/addons/": "/node_modules/three/examples/jsm/"
+    }
+  }
+  </script>
+</head>
+<body>
+  <header class="top">
+    <div class="top-inner">
+      <div class="brand">
+        <a class="back" href="/">← 返回喵星旅行社</a>
+        <h1>2D → 3D 重建工作台</h1>
+        <p class="lede">参照 img2threejs 的 <b>reconstruction-by-code</b>：参考图不生成网格、也不贴到模型上，先被编译成一份可 diff 的结构化 <code>CatSculptSpec</code>，再分阶段生成带运行时层级的 Three.js 模型，每个阶段都用「参考图 vs 渲染」的一张对比图判定。</p>
+      </div>
+      <div class="principles">
+        <div><span>01</span><b>证据先行</b><small>照片只作为颜色 / 花纹 / 比例证据</small></div>
+        <div><span>02</span><b>spec 驱动</b><small>JSON 是唯一事实来源，可导出可复现</small></div>
+        <div><span>03</span><b>门禁 fail-closed</b><small>细节没落到真实组件就不许生成代码</small></div>
+        <div><span>04</span><b>一张图评审</b><small>ΔE00 逐区域色差 + 有界自纠正</small></div>
+      </div>
+    </div>
+    <div class="rail-wrap">
+      <div class="rail-label">构建阶段</div>
+      <div class="rail" id="passRail"></div>
+    </div>
+  </header>
+
+  <main class="layout">
+    <!-- Stage 1 -->
+    <section class="card">
+      <div class="card-head"><span class="stage">STAGE 1</span><h2>Intake · 参考图与证据</h2></div>
+      <p class="hint">上传同一只猫的 1~6 张照片（3 张以上置信度更高）。照片不会贴到模型上，只用来提取毛色、花纹、明暗分区与主体占比。</p>
+
+      <div class="upload-row">
+        <label class="file-btn" for="fileInput">选择照片</label>
+        <input id="fileInput" type="file" accept="image/*" multiple hidden>
+        <select id="angleSelect" aria-label="视角">
+          <option value="front">正面 front</option>
+          <option value="side">侧面 side</option>
+          <option value="back">背面 back</option>
+          <option value="three-quarter">斜 45° 3/4</option>
+          <option value="top">俯视 top</option>
+        </select>
+      </div>
+      <div class="view-list" id="viewList"></div>
+
+      <div class="gender-row">
+        <label for="genderSelect">猫咪性别</label>
+        <select id="genderSelect">
+          <option value="auto">按档案自动</option>
+          <option value="male">公猫</option>
+          <option value="female">母猫</option>
+          <option value="unknown">未知</option>
+        </select>
+        <span class="gender-tip">公猫会在模型后方生成与周围毛色一致的毛茸茸蛋蛋</span>
+      </div>
+
+      <div class="btn-row">
+        <button class="primary" id="btnIntake">运行 intake → 生成 spec</button>
+        <button class="ghost" id="btnClear">清空</button>
+      </div>
+
+      <div class="sub-head">严格质量门禁 <small>validateSpec --strict-quality</small></div>
+      <div class="gate" id="gateReport"><span class="muted">等待 intake…</span></div>
+
+      <div class="sub-head">细节清单 <small>detailInventory</small></div>
+      <div class="detail-list" id="detailList"><span class="muted">等待 intake…</span></div>
+    </section>
+
+    <!-- Stage 2/3 -->
+    <section class="card build">
+      <div class="card-head"><span class="stage">STAGE 2 · 3</span><h2>Spec → 分阶段构建</h2></div>
+      <div class="viewport">
+        <canvas id="sceneCanvas"></canvas>
+        <div class="viewport-badge" id="viewportBadge">等待构建</div>
+        <div class="view-presets">
+          <button class="vp active" data-view="front" title="正面">正</button>
+          <button class="vp" data-view="side" title="侧面">侧</button>
+          <button class="vp" data-view="back" title="背面（看尾巴/蛋蛋）">背</button>
+          <button class="vp" data-view="top" title="俯视">顶</button>
+        </div>
+      </div>
+      <div class="pass-title" id="passTitle">尚未开始</div>
+      <p class="pass-detail" id="passDetail">上传照片并运行 intake，通过门禁后即可逐阶段构建。</p>
+
+      <div class="btn-row">
+        <button class="ghost" id="btnPrev">← 上一阶段</button>
+        <button class="primary" id="btnNext">下一阶段 →</button>
+        <button class="ghost" id="btnRunAll">一键跑完 8 阶段</button>
+      </div>
+      <div class="btn-row">
+        <button class="ghost" id="btnReset">重置流水线</button>
+        <button class="ghost" id="btnSaveState">保存状态</button>
+        <button class="ghost" id="btnLoadState">载入状态</button>
+      </div>
+
+      <div class="stats" id="buildStats"></div>
+
+      <div class="btn-row quality-row">
+        <label for="qualitySelect">网格精细度</label>
+        <select id="qualitySelect">
+          <option value="standard">标准（约 10 万面）</option>
+          <option value="fine">精细（约 23 万面）</option>
+          <option value="extreme">极致（约 38 万面 · 慢）</option>
+        </select>
+        <span class="quality-tip">切换后重建当前阶段即生效</span>
+      </div>
+
+      <details class="spec-details">
+        <summary>CatSculptSpec <span class="muted">（JSON，可复制 / 导出）</span></summary>
+        <div class="btn-row tiny">
+          <button class="ghost" id="btnCopySpec">复制 JSON</button>
+        </div>
+        <pre id="specJson">{}</pre>
+      </details>
+    </section>
+
+    <!-- Stage 4 -->
+    <section class="card">
+      <div class="card-head"><span class="stage">STAGE 4</span><h2>Review · 对比与产物</h2></div>
+      <p class="hint">每个阶段只判定一张并排对比图；不通过就按有界反馈修正材质后重跑，最多 2 轮。</p>
+      <div class="sheet-host" id="sheetHost"><span class="muted">等待首次评审…</span></div>
+
+      <div class="score-board" id="scoreBoard"></div>
+      <table class="region-table" id="regionTable"></table>
+
+      <div class="sub-head">导出产物</div>
+      <div class="btn-row">
+        <button class="ghost" id="btnExportSpec">spec.json</button>
+        <button class="ghost" id="btnExportSheet">对比图 PNG</button>
+        <button class="ghost" id="btnExportGLB">模型 GLB</button>
+      </div>
+      <p class="hint small">GLB 导出的是 spec 驱动的程序化网格（烘焙世界矩阵、去运行时毛丝），可直接进 Blender / 混元 3D 精修。</p>
+
+      <div class="sub-head">接回主站 <small>写入 cat.recon</small></div>
+      <div class="login-box" id="loginBox">
+        <form class="login-row" id="loginForm">
+          <input id="loginPhone" type="tel" placeholder="手机号" autocomplete="username">
+          <input id="loginPassword" type="password" placeholder="密码" autocomplete="current-password">
+          <button class="ghost" id="btnSiteLogin" type="submit">登录</button>
+        </form>
+        <div class="login-tip" id="loginTip">演示账号 13800000001 ~ 13800000007，密码均为 <code>123456</code>。也可在主站登录后回来点「刷新列表」。</div>
+      </div>
+      <div class="btn-row">
+        <select id="catSelect"><option value="">选择猫咪…</option></select>
+        <button class="ghost" id="btnLoadCats">刷新列表</button>
+      </div>
+      <div class="btn-row">
+        <input id="manualCatId" placeholder="或手动输入猫咪 ID（如 cat-tuan）">
+        <button class="ghost" id="btnUseManualId">使用此 ID</button>
+      </div>
+      <div class="btn-row">
+        <button class="primary" id="btnWriteBack">把 spec 写回这只猫</button>
+      </div>
+      <div class="site-status" id="siteStatus"></div>
+
+      <div class="sub-head">评审历史 <small>reviewHistory</small></div>
+      <div class="history" id="reviewList"><span class="muted">暂无记录</span></div>
+    </section>
+  </main>
+
+  <section class="card log-card">
+    <div class="card-head"><span class="stage">LOG</span><h2>流水线日志</h2><button class="ghost tiny" id="btnClearLog">清空日志</button></div>
+    <div class="log" id="log"></div>
+  </section>
+
+  <footer class="foot">
+    方法管线位于 <code>recon/</code>：<code>intake.js</code> → <code>spec.js</code> → <code>factory.js</code> → <code>review.js</code> → <code>app.js</code>。
+    几何复用主站 <code>3d-init.js</code> 的 SDF 程序化猫，不改动现有网站。
+  </footer>
+
+  <script src="/api.js"></script>
+  <script type="module" src="./app.js"></script>
+</body>
+</html>

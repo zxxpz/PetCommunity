@@ -1479,11 +1479,14 @@ function sdTaper(x, y, z, ax, ay, az, bx, by, bz, ra, rb) {
  * k=0.065 时每个接头都鼓出一圈 1.2cm 的包 —— 这就是那几道横纹的来源。
  * 改成沿 Catmull-Rom 样条均匀取 48 段、半径线性插值的折线距离场：
  * 段与段之间半径完全连续，取 min 就够了，不需要 smin，管子是真正光滑的。 */
+/* 尾巴改成「自然上扬的弯钩尾」：从臀部后方根部长出，先向后下、再向后上抬起，
+ * 最后在背上方卷成问号。正面看会从背上方探出、侧面看是一条完整的曲线、
+ * 背面看正中对着自己 —— 三个视角都能看到，不会再被身体挡住。 */
 const TAIL_POINTS = [
-  [0, 0.52, -0.46], [-0.20, 0.40, -0.52], [-0.42, 0.24, -0.42],
-  [-0.545, 0.115, -0.10], [-0.548, 0.082, 0.155], [-0.478, 0.092, 0.318], [-0.442, 0.142, 0.368]
+  [0, 0.52, -0.46], [0, 0.46, -0.70], [0, 0.58, -0.86],
+  [0, 0.86, -0.84], [0, 1.02, -0.62], [0, 1.00, -0.42]
 ];
-const TAIL_RADII = [0.090, 0.084, 0.079, 0.074, 0.066, 0.055, 0.046];
+const TAIL_RADII = [0.090, 0.084, 0.079, 0.072, 0.060, 0.046];
 
 const TAIL_SAMPLES = (() => {
   const cr = (p0, p1, p2, p3, t) => {
@@ -1515,8 +1518,8 @@ const TAIL_SAMPLES = (() => {
 })();
 
 function sdTail(x, y, z) {
-  // 先用一根粗胶囊做包围体：离得远就整段跳过，否则每个体素都要算 48 段，太慢
-  const bound = sdCap(x, y, z, -0.02, 0.44, -0.46, -0.50, 0.10, 0.30, 0.20);
+  // 先用一个宽松椭球做包围体：离得远就整段跳过，否则每个体素都要算 48 段，太慢
+  const bound = sdEll(x, y, z, 0, 0.74, -0.64, 0.42, 0.40, 0.40);
   if (bound > 0.05) return bound;
   let d = 1e9;
   for (let i = 0; i < TAIL_SAMPLES.length - 1; i += 1) {
@@ -1528,7 +1531,7 @@ function sdTail(x, y, z) {
   return d;
 }
 
-const CAT_BOUNDS = { min: [-0.62, -0.05, -0.76], max: [0.62, 1.58, 0.72] };
+const CAT_BOUNDS = { min: [-0.62, -0.05, -0.94], max: [0.62, 1.58, 0.72] };
 
 // 头在根空间的原点（与骨骼 head 的世界位置一致）
 const HEAD_ORIGIN = [0, 0.98, 0.30];
@@ -1610,11 +1613,11 @@ const CAT_PRIMITIVES = [
   ['legFR', (x, y, z) => sdEll(x, y, z, 0.215, 0.072, 0.335, 0.096, 0.072, 0.115)],
   ['legBL', (x, y, z) => sdEll(x, y, z, -0.245, 0.072, -0.185, 0.10, 0.072, 0.115)],
   ['legBR', (x, y, z) => sdEll(x, y, z, 0.245, 0.072, -0.185, 0.10, 0.072, 0.115)],
-  ['tail0', (x, y, z) => sdTaper(x, y, z, 0, 0.52, -0.46, -0.20, 0.40, -0.52, 0.090, 0.084)],
-  ['tail1', (x, y, z) => sdTaper(x, y, z, -0.20, 0.40, -0.52, -0.42, 0.24, -0.42, 0.084, 0.079)],
-  ['tail2', (x, y, z) => sdTaper(x, y, z, -0.42, 0.24, -0.42, -0.545, 0.115, -0.10, 0.079, 0.074)],
-  ['tail3', (x, y, z) => sdTaper(x, y, z, -0.545, 0.115, -0.10, -0.548, 0.082, 0.155, 0.074, 0.066)],
-  ['tail3', (x, y, z) => sdTaper(x, y, z, -0.548, 0.082, 0.155, -0.442, 0.142, 0.368, 0.066, 0.046)]
+  ['tail0', (x, y, z) => sdTaper(x, y, z, 0, 0.52, -0.46, 0, 0.46, -0.70, 0.090, 0.084)],
+  ['tail1', (x, y, z) => sdTaper(x, y, z, 0, 0.46, -0.70, 0, 0.58, -0.86, 0.084, 0.079)],
+  ['tail2', (x, y, z) => sdTaper(x, y, z, 0, 0.58, -0.86, 0, 0.86, -0.84, 0.079, 0.072)],
+  ['tail3', (x, y, z) => sdTaper(x, y, z, 0, 0.86, -0.84, 0, 1.02, -0.62, 0.072, 0.060)],
+  ['tail3', (x, y, z) => sdTaper(x, y, z, 0, 1.02, -0.62, 0, 1.00, -0.42, 0.060, 0.046)]
 ];
 
 /* Surface Nets：每个穿过等值面的体素只生成一个顶点（取所有交点的平均），
@@ -1801,7 +1804,10 @@ function taubinSmooth(positions, indices, iterations = 3, lambda = 0.52, mu = -0
  * 4. 3D 猫咪骨架
  * ------------------------------------------------------------------ */
 
-function buildCatRig(cat) {
+function buildCatRig(cat, options = {}) {
+  // 曲面采样精度与毛丝密度可由调用方指定；主站不传 options 时保持原有画质
+  const cell = Number(options.cell) > 0 ? Number(options.cell) : 0.018;
+  const strands = Number(options.strands) > 0 ? Math.round(Number(options.strands)) : 5200;
   const override = presetCoat(readCoatOverrides()[cat.id]);
   const initial = coatFrom(override || breedPreset(cat), cat.avatar || '');
   let coat = initial;
@@ -1810,7 +1816,7 @@ function buildCatRig(cat) {
   const parts = { root, materials, pupils: [], ears: [], strandMeshes: [] };
 
   /* —— 用距离场生成一整张连续的猫身网格（无接缝） —— */
-  const built = polygonizeCat(0.018);
+  const built = polygonizeCat(cell);
   const smoothed = taubinSmooth(built.positions, built.indices, 3);
   const geo = new THREE.BufferGeometry();
   const posArr = new Float32Array(smoothed);
@@ -1851,9 +1857,9 @@ function buildCatRig(cat) {
     ['legBL', 'body', -0.25, -0.20, -0.25],
     ['legBR', 'body', 0.25, -0.20, -0.25],
     ['tail0', 'body', 0, -0.10, -0.46],
-    ['tail1', 'tail0', -0.20, -0.12, -0.06],
-    ['tail2', 'tail1', -0.22, -0.16, 0.10],
-    ['tail3', 'tail2', -0.10, -0.13, 0.32]
+    ['tail1', 'tail0', 0, -0.06, -0.24],
+    ['tail2', 'tail1', 0, 0.12, -0.16],
+    ['tail3', 'tail2', 0, 0.28, 0.02]
   ];
   const boneMap = {};
   const boneList = [];
@@ -1919,7 +1925,7 @@ function buildCatRig(cat) {
    *  1) 正脸（眼、鼻、口那一块 z>0.58、y 0.86~1.10）留空，否则短毛插进眼睛里
    *  2) 朝下的面（贴地）不铺，会插进地毯
    *  3) 前胸白斑上不铺 —— 白毛配灰毛丝会脏，胸口的绒感交给贴图 */
-  const bodyStrands = addMeshStrands(mesh, boneList, 5200, strandColors(coat), {
+  const bodyStrands = addMeshStrands(mesh, boneList, strands, strandColors(coat), {
     material: materials.strand,
     minLen: 0.008, maxLen: 0.019,
     minThick: 0.0022, maxThick: 0.0044,
@@ -3241,6 +3247,13 @@ window.__refreshMeow3D = refresh3D;
 window.__meow3dAnalyzePhoto = (image) => analyzePhoto(image);
 window.__meow3dCalibrateViews = (images, cat) => calibrateViews(images || [], cat || null);
 window.__meow3dPatternLabel = (pattern) => PATTERN_LABELS[pattern] || pattern || '';
+
+/* 供 recon/ 重建工作台复用同一套分析与造型逻辑，避免两套算法给出两种毛色。
+   加 export 不影响本模块作为 <script type="module"> 直接运行。 */
+export {
+  analyzePhoto, calibrateViews, coatFrom, buildCatRig, addLights, getShadowTexture,
+  presetCoat, breedPreset, PATTERN_LABELS, BREED_PRESETS
+};
 
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', refresh3D);

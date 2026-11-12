@@ -280,57 +280,1201 @@
       "createdAt": "2026-11-10T18:24:05.739Z",
       "views": [
         {
-          "id": "view-mwdkq4h4g4jz8m",
-          "url": "/data/views/cat-mwb0ra7fennby1/mwdkq4h4-jz8m.jpg",
-          "angle": "front",
-          "name": "3.jpg",
-          "size": 129770,
-          "width": 739,
-          "height": 1600,
-          "at": "2026-11-12T13:18:36.330Z"
-        },
-        {
-          "id": "view-mwdkq4j9dq00u6",
-          "url": "/data/views/cat-mwb0ra7fennby1/mwdkq4j9-00u6.jpg",
-          "angle": "top",
-          "name": "2.jpg",
-          "size": 67072,
-          "width": 1279,
-          "height": 1348,
-          "at": "2026-11-12T13:18:36.406Z"
-        },
-        {
-          "id": "view-mwdkq4lq1zshcj",
-          "url": "/data/views/cat-mwb0ra7fennby1/mwdkq4lq-shcj.jpg",
-          "angle": "right",
+          "id": "view-mwdtl2ca5uk3op",
+          "url": "/data/views/cat-mwb0ra7fennby1/mwdtl2ca-k3op.jpg",
+          "angle": "extra",
           "name": "1.jpg",
           "size": 307886,
           "width": 1200,
           "height": 1600,
-          "at": "2026-11-12T13:18:36.495Z"
+          "at": "2026-11-12T17:26:36.827Z"
         },
         {
-          "id": "view-mwdkq4nzmiw5xw",
-          "url": "/data/views/cat-mwb0ra7fennby1/mwdkq4nz-w5xw.jpg",
-          "angle": "left",
+          "id": "view-mwdtl2dk7909wm",
+          "url": "/data/views/cat-mwb0ra7fennby1/mwdtl2dk-09wm.jpg",
+          "angle": "extra",
+          "name": "2.jpg",
+          "size": 67072,
+          "width": 1279,
+          "height": 1348,
+          "at": "2026-11-12T17:26:36.873Z"
+        },
+        {
+          "id": "view-mwdtl2ffcoz72l",
+          "url": "/data/views/cat-mwb0ra7fennby1/mwdtl2ff-z72l.jpg",
+          "angle": "extra",
+          "name": "3.jpg",
+          "size": 129770,
+          "width": 739,
+          "height": 1600,
+          "at": "2026-11-12T17:26:36.940Z"
+        },
+        {
+          "id": "view-mwdtl2gxfrwgm6",
+          "url": "/data/views/cat-mwb0ra7fennby1/mwdtl2gx-wgm6.jpg",
+          "angle": "extra",
           "name": "猫.jpg",
           "size": 234512,
           "width": 1600,
           "height": 1200,
-          "at": "2026-11-12T13:18:36.581Z"
+          "at": "2026-11-12T17:26:36.995Z"
         }
       ],
       "recon": {
-        "status": "queued",
-        "updatedAt": "2026-11-12T13:40:22.074Z",
-        "samples": 4,
-        "angles": [
-          "front",
-          "left",
-          "right",
-          "top"
-        ],
-        "note": "素材已就绪：多视角重建需要离线跑（COLMAP 标定 + 3DGS 训练），页面只负责收集和排队。"
+        "status": "done",
+        "method": "spec-driven-procedural",
+        "generator": "meow-recon/1.0.0",
+        "passes": {
+          "blockout": {
+            "status": "passed",
+            "attempts": 1,
+            "at": "2026-11-12T18:23:51.231Z"
+          },
+          "structural": {
+            "status": "passed",
+            "attempts": 1,
+            "at": "2026-11-12T18:23:51.742Z"
+          },
+          "form": {
+            "status": "passed",
+            "attempts": 1,
+            "at": "2026-11-12T18:23:52.268Z"
+          },
+          "material": {
+            "status": "passed",
+            "attempts": 1,
+            "at": "2026-11-12T18:23:52.875Z"
+          },
+          "surface": {
+            "status": "passed",
+            "attempts": 1,
+            "at": "2026-11-12T18:23:53.596Z"
+          },
+          "lighting": {
+            "status": "passed",
+            "attempts": 1,
+            "at": "2026-11-12T18:23:54.243Z"
+          },
+          "interaction": {
+            "status": "passed",
+            "attempts": 1,
+            "at": "2026-11-12T18:23:54.898Z"
+          },
+          "optimization": {
+            "status": "passed",
+            "attempts": 1,
+            "at": "2026-11-12T18:23:55.565Z"
+          }
+        },
+        "spec": {
+          "schemaVersion": "1.0.0",
+          "generator": "meow-recon/1.0.0",
+          "subject": {
+            "id": "recon-e237fcaa",
+            "name": "重建猫咪",
+            "kind": "cat",
+            "profile": "quadruped",
+            "breed": "",
+            "gender": "male"
+          },
+          "source": {
+            "views": [
+              {
+                "id": "v-e237fcaa",
+                "angle": "front",
+                "width": 1279,
+                "height": 1348,
+                "bytes": 68139,
+                "digest": "e237fcaa"
+              },
+              {
+                "id": "v-250a411d",
+                "angle": "front",
+                "width": 1706,
+                "height": 1279,
+                "bytes": 198752,
+                "digest": "250a411d"
+              },
+              {
+                "id": "v-f9fe9e98",
+                "angle": "front",
+                "width": 1279,
+                "height": 1706,
+                "bytes": 261318,
+                "digest": "f9fe9e98"
+              }
+            ],
+            "primaryViewId": "v-e237fcaa"
+          },
+          "evidence": {
+            "palette": {
+              "base": {
+                "r": 156,
+                "g": 148,
+                "b": 125
+              },
+              "accent": {
+                "r": 103,
+                "g": 98,
+                "b": 83
+              },
+              "light": {
+                "r": 231,
+                "g": 231,
+                "b": 232
+              },
+              "eye": {
+                "r": 195,
+                "g": 153,
+                "b": 69
+              },
+              "nose": {
+                "r": 106,
+                "g": 85,
+                "b": 79
+              }
+            },
+            "pattern": "solid",
+            "bib": true,
+            "samples": 3,
+            "balanced": 2,
+            "source": "calibrateViews",
+            "quality": {
+              "width": 1279,
+              "height": 1348,
+              "minSide": 1279,
+              "aspect": 0.949,
+              "meanLum": 0.217,
+              "subjectCoverage": 1,
+              "backgroundRatio": 0,
+              "overExposed": 0,
+              "underExposed": 0.019,
+              "sharpness": 0.012,
+              "headRatio": 0.879,
+              "background": {
+                "r": 27,
+                "g": 24,
+                "b": 20
+              },
+              "regions": [
+                {
+                  "id": "r00",
+                  "color": {
+                    "r": 77,
+                    "g": 71,
+                    "b": 64
+                  },
+                  "coverage": 1
+                },
+                {
+                  "id": "r01",
+                  "color": {
+                    "r": 80,
+                    "g": 73,
+                    "b": 67
+                  },
+                  "coverage": 1
+                },
+                {
+                  "id": "r02",
+                  "color": {
+                    "r": 67,
+                    "g": 64,
+                    "b": 58
+                  },
+                  "coverage": 1
+                },
+                {
+                  "id": "r10",
+                  "color": {
+                    "r": 71,
+                    "g": 64,
+                    "b": 55
+                  },
+                  "coverage": 1
+                },
+                {
+                  "id": "r11",
+                  "color": {
+                    "r": 75,
+                    "g": 68,
+                    "b": 60
+                  },
+                  "coverage": 1
+                },
+                {
+                  "id": "r12",
+                  "color": {
+                    "r": 49,
+                    "g": 44,
+                    "b": 39
+                  },
+                  "coverage": 1
+                },
+                {
+                  "id": "r20",
+                  "color": {
+                    "r": 30,
+                    "g": 24,
+                    "b": 18
+                  },
+                  "coverage": 1
+                },
+                {
+                  "id": "r21",
+                  "color": {
+                    "r": 49,
+                    "g": 43,
+                    "b": 36
+                  },
+                  "coverage": 1
+                },
+                {
+                  "id": "r22",
+                  "color": {
+                    "r": 40,
+                    "g": 42,
+                    "b": 42
+                  },
+                  "coverage": 1
+                }
+              ]
+            },
+            "regions": [
+              {
+                "id": "r00",
+                "color": {
+                  "r": 77,
+                  "g": 71,
+                  "b": 64
+                },
+                "coverage": 1
+              },
+              {
+                "id": "r01",
+                "color": {
+                  "r": 80,
+                  "g": 73,
+                  "b": 67
+                },
+                "coverage": 1
+              },
+              {
+                "id": "r02",
+                "color": {
+                  "r": 67,
+                  "g": 64,
+                  "b": 58
+                },
+                "coverage": 1
+              },
+              {
+                "id": "r10",
+                "color": {
+                  "r": 71,
+                  "g": 64,
+                  "b": 55
+                },
+                "coverage": 1
+              },
+              {
+                "id": "r11",
+                "color": {
+                  "r": 75,
+                  "g": 68,
+                  "b": 60
+                },
+                "coverage": 1
+              },
+              {
+                "id": "r12",
+                "color": {
+                  "r": 49,
+                  "g": 44,
+                  "b": 39
+                },
+                "coverage": 1
+              },
+              {
+                "id": "r20",
+                "color": {
+                  "r": 30,
+                  "g": 24,
+                  "b": 18
+                },
+                "coverage": 1
+              },
+              {
+                "id": "r21",
+                "color": {
+                  "r": 49,
+                  "g": 43,
+                  "b": 36
+                },
+                "coverage": 1
+              },
+              {
+                "id": "r22",
+                "color": {
+                  "r": 40,
+                  "g": 42,
+                  "b": 42
+                },
+                "coverage": 1
+              }
+            ],
+            "traits": {
+              "eyeShape": "almond",
+              "pupilShape": "round",
+              "facePattern": "solid",
+              "bodyPattern": "solid",
+              "coatColor": {
+                "r": 156,
+                "g": 148,
+                "b": 125
+              },
+              "tailColor": {
+                "r": 147,
+                "g": 139,
+                "b": 118
+              },
+              "labels": {
+                "almond": "杏仁眼",
+                "oval": "椭圆眼",
+                "round": "圆眼",
+                "slit": "竖瞳",
+                "roundPupil": "圆瞳",
+                "stripes": "条纹",
+                "patch": "斑块",
+                "mask": "面罩",
+                "solid": "纯色"
+              },
+              "eyeObserved": false,
+              "inferred": [
+                "tailColor",
+                "pupilShape",
+                "eyeShape"
+              ],
+              "sample": {
+                "irisHits": 0,
+                "irisRatio": null,
+                "meanLum": 0.217,
+                "faceEdge": 0.017,
+                "bodyEdge": 0
+              }
+            },
+            "subjectGender": "male",
+            "viewReports": [
+              {
+                "angle": "front",
+                "pattern": "solid",
+                "minSide": 1279,
+                "subjectCoverage": 1,
+                "meanLum": 0.217
+              },
+              {
+                "angle": "front",
+                "pattern": "solid",
+                "minSide": 1279,
+                "subjectCoverage": 1,
+                "meanLum": 0.439
+              },
+              {
+                "angle": "front",
+                "pattern": "solid",
+                "minSide": 1279,
+                "subjectCoverage": 1,
+                "meanLum": 0.454
+              }
+            ],
+            "detailInventory": [
+              {
+                "id": "coat.base",
+                "zone": "body",
+                "feature": "主体毛色",
+                "value": "156,148,125",
+                "confidence": 0.98,
+                "mappedTo": "coat",
+                "kind": "material"
+              },
+              {
+                "id": "coat.accent",
+                "zone": "body",
+                "feature": "花纹暗部",
+                "value": "103,98,83",
+                "confidence": 0.98,
+                "mappedTo": "coatPattern",
+                "kind": "material"
+              },
+              {
+                "id": "coat.light",
+                "zone": "chest",
+                "feature": "胸腹浅色区",
+                "value": "231,231,232",
+                "confidence": 0.98,
+                "mappedTo": "bib",
+                "kind": "material"
+              },
+              {
+                "id": "coat.pattern",
+                "zone": "body",
+                "feature": "花纹类型",
+                "value": "solid",
+                "confidence": 0.98,
+                "mappedTo": "coatPattern",
+                "kind": "material"
+              },
+              {
+                "id": "coat.bib",
+                "zone": "chest",
+                "feature": "是否有白围兜",
+                "value": "有",
+                "confidence": 0.98,
+                "mappedTo": "bib",
+                "kind": "material"
+              },
+              {
+                "id": "eye.iris",
+                "zone": "head",
+                "feature": "虹膜颜色",
+                "value": "195,153,69",
+                "confidence": 0.98,
+                "mappedTo": "iris",
+                "kind": "material"
+              },
+              {
+                "id": "nose.tone",
+                "zone": "head",
+                "feature": "鼻头颜色",
+                "value": "106,85,79",
+                "confidence": 0.98,
+                "mappedTo": "nose",
+                "kind": "material"
+              },
+              {
+                "id": "ear.inner",
+                "zone": "head",
+                "feature": "内耳色调",
+                "value": "由毛色推导",
+                "confidence": 0.98,
+                "mappedTo": "earInner",
+                "kind": "material"
+              },
+              {
+                "id": "silhouette.head",
+                "zone": "head",
+                "feature": "头部比例",
+                "value": 0.879,
+                "confidence": 0.98,
+                "mappedTo": "head",
+                "kind": "component"
+              },
+              {
+                "id": "silhouette.tail",
+                "zone": "rear",
+                "feature": "尾部走向",
+                "value": "模板推断",
+                "confidence": 0.55,
+                "mappedTo": "tail",
+                "kind": "component"
+              },
+              {
+                "id": "silhouette.body",
+                "zone": "body",
+                "feature": "躯干体量",
+                "value": 0.949,
+                "confidence": 0.98,
+                "mappedTo": "body",
+                "kind": "component"
+              },
+              {
+                "id": "coat.furColor",
+                "zone": "body",
+                "feature": "毛发颜色",
+                "value": "156,148,125",
+                "confidence": 0.98,
+                "mappedTo": "furColor",
+                "kind": "material"
+              },
+              {
+                "id": "tail.color",
+                "zone": "tail",
+                "feature": "尾巴颜色",
+                "value": "147,139,118",
+                "confidence": 0.62,
+                "mappedTo": "tailCoat",
+                "kind": "material",
+                "inferred": true
+              },
+              {
+                "id": "face.pattern",
+                "zone": "head",
+                "feature": "面部花纹",
+                "value": "纯色",
+                "confidence": 0.98,
+                "mappedTo": "facePattern",
+                "kind": "material"
+              },
+              {
+                "id": "body.pattern",
+                "zone": "body",
+                "feature": "身体花纹",
+                "value": "纯色",
+                "confidence": 0.98,
+                "mappedTo": "bodyPattern",
+                "kind": "material"
+              },
+              {
+                "id": "eye.shape",
+                "zone": "head",
+                "feature": "眼睛形状",
+                "value": "杏仁眼",
+                "confidence": 0.58,
+                "mappedTo": "eyeL",
+                "kind": "component",
+                "inferred": true
+              },
+              {
+                "id": "eye.pupil",
+                "zone": "head",
+                "feature": "瞳孔形状",
+                "value": "圆瞳",
+                "confidence": 0.6,
+                "mappedTo": "pupil",
+                "kind": "material",
+                "inferred": true
+              },
+              {
+                "id": "anatomy.scrotum",
+                "zone": "rear",
+                "feature": "公猫蛋蛋",
+                "value": "毛茸茸 · 与周围同色",
+                "confidence": 0.95,
+                "mappedTo": "scrotum",
+                "kind": "component"
+              }
+            ]
+          },
+          "proportions": {
+            "head": 1.14,
+            "body": 0.9949,
+            "leg": 1,
+            "ear": 1.02,
+            "tail": 1,
+            "chub": 1.1
+          },
+          "materials": [
+            {
+              "id": "coat",
+              "role": "主体毛色",
+              "color": {
+                "r": 156,
+                "g": 148,
+                "b": 125
+              },
+              "roughness": 0.92,
+              "sheen": 0.35,
+              "provenance": "evidence.palette.base"
+            },
+            {
+              "id": "coatPattern",
+              "role": "花纹暗部",
+              "color": {
+                "r": 103,
+                "g": 98,
+                "b": 83
+              },
+              "roughness": 0.9,
+              "sheen": 0.3,
+              "provenance": "evidence.palette.accent"
+            },
+            {
+              "id": "bib",
+              "role": "浅色区",
+              "color": {
+                "r": 231,
+                "g": 231,
+                "b": 232
+              },
+              "roughness": 0.94,
+              "sheen": 0.28,
+              "provenance": "evidence.palette.light"
+            },
+            {
+              "id": "iris",
+              "role": "虹膜",
+              "color": {
+                "r": 195,
+                "g": 153,
+                "b": 69
+              },
+              "roughness": 0.24,
+              "sheen": 0.1,
+              "provenance": "evidence.palette.eye"
+            },
+            {
+              "id": "nose",
+              "role": "鼻头",
+              "color": {
+                "r": 106,
+                "g": 85,
+                "b": 79
+              },
+              "roughness": 0.55,
+              "sheen": 0.1,
+              "provenance": "evidence.palette.nose"
+            },
+            {
+              "id": "earInner",
+              "role": "内耳",
+              "color": {
+                "r": 191,
+                "g": 161,
+                "b": 151
+              },
+              "roughness": 0.88,
+              "sheen": 0.2,
+              "provenance": "derived:base+pink"
+            },
+            {
+              "id": "furColor",
+              "role": "毛发颜色（绒毛/毛丝）",
+              "color": {
+                "r": 156,
+                "g": 148,
+                "b": 125
+              },
+              "roughness": 0.97,
+              "sheen": 0.22,
+              "provenance": "evidence.traits.coatColor"
+            },
+            {
+              "id": "tailCoat",
+              "role": "尾巴颜色",
+              "color": {
+                "r": 147,
+                "g": 139,
+                "b": 118
+              },
+              "roughness": 0.95,
+              "sheen": 0.22,
+              "provenance": "evidence.traits.tailColor"
+            },
+            {
+              "id": "facePattern",
+              "role": "面部花纹色",
+              "color": {
+                "r": 140,
+                "g": 133,
+                "b": 112
+              },
+              "roughness": 0.93,
+              "sheen": 0.25,
+              "provenance": "derived:facePattern+accent"
+            },
+            {
+              "id": "bodyPattern",
+              "role": "身体花纹色",
+              "color": {
+                "r": 140,
+                "g": 133,
+                "b": 112
+              },
+              "roughness": 0.93,
+              "sheen": 0.25,
+              "provenance": "derived:bodyPattern+accent"
+            },
+            {
+              "id": "pupil",
+              "role": "瞳孔",
+              "color": {
+                "r": 23,
+                "g": 19,
+                "b": 17
+              },
+              "roughness": 0.35,
+              "sheen": 0.05,
+              "provenance": "derived:eye.darkened"
+            }
+          ],
+          "components": [
+            {
+              "id": "root",
+              "name": "整体",
+              "parent": "",
+              "kind": "group",
+              "socket": null,
+              "collider": null,
+              "provenance": "template:cat-sdf-v1"
+            },
+            {
+              "id": "body",
+              "name": "躯干",
+              "parent": "root",
+              "kind": "sdf",
+              "socket": "spine",
+              "collider": "capsule",
+              "provenance": "template:cat-sdf-v1"
+            },
+            {
+              "id": "head",
+              "name": "头部",
+              "parent": "body",
+              "kind": "sdf",
+              "socket": "neck",
+              "collider": "sphere",
+              "provenance": "template:cat-sdf-v1"
+            },
+            {
+              "id": "earL",
+              "name": "左耳",
+              "parent": "head",
+              "kind": "sdf",
+              "socket": "socket.earL",
+              "collider": "cone",
+              "provenance": "template:cat-sdf-v1"
+            },
+            {
+              "id": "earR",
+              "name": "右耳",
+              "parent": "head",
+              "kind": "sdf",
+              "socket": "socket.earR",
+              "collider": "cone",
+              "provenance": "template:cat-sdf-v1"
+            },
+            {
+              "id": "muzzle",
+              "name": "口鼻",
+              "parent": "head",
+              "kind": "sdf",
+              "socket": "socket.muzzle",
+              "collider": "sphere",
+              "provenance": "template:cat-sdf-v1"
+            },
+            {
+              "id": "eyes",
+              "name": "双眼",
+              "parent": "head",
+              "kind": "sdf",
+              "socket": "socket.eyes",
+              "collider": null,
+              "provenance": "template:cat-sdf-v1"
+            },
+            {
+              "id": "nose",
+              "name": "鼻头",
+              "parent": "head",
+              "kind": "sdf",
+              "socket": null,
+              "collider": null,
+              "provenance": "template:cat-sdf-v1"
+            },
+            {
+              "id": "legFL",
+              "name": "左前腿",
+              "parent": "body",
+              "kind": "sdf",
+              "socket": "paw.FL",
+              "collider": "capsule",
+              "provenance": "template:cat-sdf-v1"
+            },
+            {
+              "id": "legFR",
+              "name": "右前腿",
+              "parent": "body",
+              "kind": "sdf",
+              "socket": "paw.FR",
+              "collider": "capsule",
+              "provenance": "template:cat-sdf-v1"
+            },
+            {
+              "id": "legBL",
+              "name": "左后腿",
+              "parent": "body",
+              "kind": "sdf",
+              "socket": "paw.BL",
+              "collider": "capsule",
+              "provenance": "template:cat-sdf-v1"
+            },
+            {
+              "id": "legBR",
+              "name": "右后腿",
+              "parent": "body",
+              "kind": "sdf",
+              "socket": "paw.BR",
+              "collider": "capsule",
+              "provenance": "template:cat-sdf-v1"
+            },
+            {
+              "id": "tail",
+              "name": "尾巴",
+              "parent": "body",
+              "kind": "sdf",
+              "socket": "tail.base",
+              "collider": "capsule",
+              "provenance": "template:cat-sdf-v1"
+            },
+            {
+              "id": "eyeL",
+              "name": "左眼",
+              "parent": "eyes",
+              "kind": "sdf",
+              "socket": null,
+              "collider": null,
+              "provenance": "template:cat-sdf-v1"
+            },
+            {
+              "id": "eyeR",
+              "name": "右眼",
+              "parent": "eyes",
+              "kind": "sdf",
+              "socket": null,
+              "collider": null,
+              "provenance": "template:cat-sdf-v1"
+            },
+            {
+              "id": "pupilL",
+              "name": "左瞳孔",
+              "parent": "eyes",
+              "kind": "decal",
+              "socket": null,
+              "collider": null,
+              "provenance": "template:cat-sdf-v1"
+            },
+            {
+              "id": "pupilR",
+              "name": "右瞳孔",
+              "parent": "eyes",
+              "kind": "decal",
+              "socket": null,
+              "collider": null,
+              "provenance": "template:cat-sdf-v1"
+            },
+            {
+              "id": "faceMark",
+              "name": "面部花纹",
+              "parent": "head",
+              "kind": "pattern",
+              "socket": null,
+              "collider": null,
+              "provenance": "template:cat-sdf-v1"
+            },
+            {
+              "id": "bodyMark",
+              "name": "身体花纹",
+              "parent": "body",
+              "kind": "pattern",
+              "socket": null,
+              "collider": null,
+              "provenance": "template:cat-sdf-v1"
+            },
+            {
+              "id": "tailCoat",
+              "name": "尾巴毛色",
+              "parent": "tail",
+              "kind": "coat",
+              "socket": null,
+              "collider": null,
+              "provenance": "template:cat-sdf-v1"
+            },
+            {
+              "id": "scrotum",
+              "name": "公猫蛋蛋",
+              "parent": "body",
+              "kind": "anatomy",
+              "socket": null,
+              "collider": "sphere",
+              "provenance": "template:cat-sdf-v1"
+            }
+          ],
+          "sockets": [
+            {
+              "id": "spine",
+              "owner": "body"
+            },
+            {
+              "id": "neck",
+              "owner": "head"
+            },
+            {
+              "id": "socket.earL",
+              "owner": "earL"
+            },
+            {
+              "id": "socket.earR",
+              "owner": "earR"
+            },
+            {
+              "id": "socket.muzzle",
+              "owner": "muzzle"
+            },
+            {
+              "id": "socket.eyes",
+              "owner": "eyes"
+            },
+            {
+              "id": "paw.FL",
+              "owner": "legFL"
+            },
+            {
+              "id": "paw.FR",
+              "owner": "legFR"
+            },
+            {
+              "id": "paw.BL",
+              "owner": "legBL"
+            },
+            {
+              "id": "paw.BR",
+              "owner": "legBR"
+            },
+            {
+              "id": "tail.base",
+              "owner": "tail"
+            }
+          ],
+          "colliders": [
+            {
+              "id": "capsule",
+              "owner": "body"
+            },
+            {
+              "id": "sphere",
+              "owner": "head"
+            },
+            {
+              "id": "cone",
+              "owner": "earL"
+            },
+            {
+              "id": "cone",
+              "owner": "earR"
+            },
+            {
+              "id": "sphere",
+              "owner": "muzzle"
+            },
+            {
+              "id": "capsule",
+              "owner": "legFL"
+            },
+            {
+              "id": "capsule",
+              "owner": "legFR"
+            },
+            {
+              "id": "capsule",
+              "owner": "legBL"
+            },
+            {
+              "id": "capsule",
+              "owner": "legBR"
+            },
+            {
+              "id": "capsule",
+              "owner": "tail"
+            },
+            {
+              "id": "sphere",
+              "owner": "scrotum"
+            }
+          ],
+          "lighting": {
+            "key": 1.45,
+            "fill": 0.5,
+            "rim": 1,
+            "ambient": 0.62,
+            "exposure": 1
+          },
+          "camera": {
+            "fov": 38,
+            "position": [
+              0,
+              1.04,
+              3.1
+            ],
+            "target": [
+              0,
+              0.72,
+              0
+            ]
+          },
+          "quality": {
+            "tier": "standard",
+            "cell": 0.018,
+            "strands": 5200
+          },
+          "passes": {
+            "blockout": {
+              "status": "passed",
+              "attempts": 1,
+              "at": "2026-11-12T18:23:51.231Z"
+            },
+            "structural": {
+              "status": "passed",
+              "attempts": 1,
+              "at": "2026-11-12T18:23:51.742Z"
+            },
+            "form": {
+              "status": "passed",
+              "attempts": 1,
+              "at": "2026-11-12T18:23:52.268Z"
+            },
+            "material": {
+              "status": "passed",
+              "attempts": 1,
+              "at": "2026-11-12T18:23:52.875Z"
+            },
+            "surface": {
+              "status": "passed",
+              "attempts": 1,
+              "at": "2026-11-12T18:23:53.596Z"
+            },
+            "lighting": {
+              "status": "passed",
+              "attempts": 1,
+              "at": "2026-11-12T18:23:54.243Z"
+            },
+            "interaction": {
+              "status": "passed",
+              "attempts": 1,
+              "at": "2026-11-12T18:23:54.898Z"
+            },
+            "optimization": {
+              "status": "passed",
+              "attempts": 1,
+              "at": "2026-11-12T18:23:55.565Z"
+            }
+          },
+          "reviewHistory": [
+            {
+              "at": "2026-11-12T18:23:51.231Z",
+              "pass": "blockout",
+              "decision": "pass",
+              "attempt": 0,
+              "scores": {
+                "color": null,
+                "silhouette": 0.547,
+                "detail": 1,
+                "overall": 0.751
+              },
+              "meanDE": 21.82,
+              "feedback": []
+            },
+            {
+              "at": "2026-11-12T18:23:51.742Z",
+              "pass": "structural",
+              "decision": "pass",
+              "attempt": 0,
+              "scores": {
+                "color": null,
+                "silhouette": 0.547,
+                "detail": 1,
+                "overall": 0.751
+              },
+              "meanDE": 21.82,
+              "feedback": []
+            },
+            {
+              "at": "2026-11-12T18:23:52.268Z",
+              "pass": "form",
+              "decision": "pass",
+              "attempt": 0,
+              "scores": {
+                "color": null,
+                "silhouette": 0.568,
+                "detail": 1,
+                "overall": 0.763
+              },
+              "meanDE": 21.81,
+              "feedback": []
+            },
+            {
+              "at": "2026-11-12T18:23:52.875Z",
+              "pass": "material",
+              "decision": "pass",
+              "attempt": 0,
+              "scores": {
+                "color": 0.66,
+                "silhouette": 0.568,
+                "detail": 1,
+                "overall": 0.756
+              },
+              "meanDE": 15.32,
+              "feedback": []
+            },
+            {
+              "at": "2026-11-12T18:23:53.596Z",
+              "pass": "surface",
+              "decision": "pass",
+              "attempt": 0,
+              "scores": {
+                "color": 0.662,
+                "silhouette": 0.569,
+                "detail": 1,
+                "overall": 0.757
+              },
+              "meanDE": 15.19,
+              "feedback": []
+            },
+            {
+              "at": "2026-11-12T18:23:54.243Z",
+              "pass": "lighting",
+              "decision": "pass",
+              "attempt": 0,
+              "scores": {
+                "color": 0.622,
+                "silhouette": 0.571,
+                "detail": 1,
+                "overall": 0.742
+              },
+              "meanDE": 16.99,
+              "feedback": []
+            },
+            {
+              "at": "2026-11-12T18:23:54.898Z",
+              "pass": "interaction",
+              "decision": "pass",
+              "attempt": 0,
+              "scores": {
+                "color": null,
+                "silhouette": 0.571,
+                "detail": 1,
+                "overall": 0.764
+              },
+              "meanDE": 16.99,
+              "feedback": []
+            },
+            {
+              "at": "2026-11-12T18:23:55.565Z",
+              "pass": "optimization",
+              "decision": "pass",
+              "attempt": 0,
+              "scores": {
+                "color": null,
+                "silhouette": 0.571,
+                "detail": 1,
+                "overall": 0.764
+              },
+              "meanDE": 17.01,
+              "feedback": []
+            }
+          ],
+          "provenance": {
+            "createdAt": "2026-11-12T18:23:47.549Z",
+            "updatedAt": "2026-11-12T18:24:27.624Z",
+            "method": "spec-driven-procedural",
+            "referenceDigests": [
+              "e237fcaa",
+              "250a411d",
+              "f9fe9e98"
+            ],
+            "exportedAt": "2026-11-12T18:24:29.673Z",
+            "digest": "e62b5087"
+          }
+        },
+        "updatedAt": "2026-11-12T18:24:29.673Z"
       },
       "coatProfile": {
         "palette": {
@@ -1704,16 +2848,16 @@
       "userId": "user-mwb1tec82dg6lm"
     },
     {
-      "token": "132a91116fcef6946c2ad7d397dc8ac8505b6e5814198c26",
-      "userId": "user-mwb0pzsilbyj5i"
-    },
-    {
       "token": "b5481bbb8d331cf9fe1e28ecede19ec167ec6af59c12a459",
       "userId": "u-mimi-parent"
     },
     {
       "token": "da3b2e67ffadac92409f79bdeafd285b202ab4fa7789f46d",
       "userId": "u-tuan-parent"
+    },
+    {
+      "token": "941a8f48a100ecec55673d08b2b13b4fe094a20ab738d88c",
+      "userId": "user-mwb0pzsilbyj5i"
     }
   ],
   "trips": [
