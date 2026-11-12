@@ -1,0 +1,17 @@
+  /* 全身绒毛：一次撒在整张网格上，按蒙皮权重分到各根骨头。
+   * 过滤三处：
+   *  1) 正脸（眼、鼻、口那一块 z>0.58、y 0.86~1.10）留空，否则短毛插进眼睛里
+   *  2) 朝下的面（贴地）不铺，会插进地毯
+   *  3) 前胸白斑上不铺 —— 白毛配灰毛丝会脏，胸口的绒感交给贴图 */
+  const bodyStrands = addMeshStrands(mesh, boneList, 4200, strandColors(coat), {
+    material: materials.strand,
+    minLen: 0.012, maxLen: 0.031,
+    minThick: 0.0022, maxThick: 0.0046,
+    filter: (n, x, y, z) => {
+      if (n.y < -0.62) return false;
+      if (z > 0.58 && y > 0.86 && y < 1.10 && Math.abs(x) < 0.30) return false;
+      if (z > 0.30 && y > 0.20 && y < 0.46 && Math.abs(x) < 0.16) return false;
+      return true;
+    }
+  });
+  bodyStrands.forEach((item) => parts.strandMeshes.push(item));

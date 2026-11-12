@@ -1525,6 +1525,16 @@
   ],
   "bullets": [
     {
+      "id": "bullet-mwdpidt6gl09wu",
+      "targetCatId": "cat-san",
+      "fromUserId": "u-tuan-parent",
+      "nickname": "团子家长",
+      "kind": "praise",
+      "text": "冒烟测试弹幕",
+      "time": "11月12日 23:32",
+      "color": "#c06a34"
+    },
+    {
       "id": "bullet-mwdlxqv80ckuxj",
       "targetCatId": "cat-san",
       "fromUserId": "u-tuan-parent",
@@ -1702,7 +1712,7 @@
       "userId": "u-mimi-parent"
     },
     {
-      "token": "00e09d45de64a7409a0d8afd0c9feadc4067e0168e26a60f",
+      "token": "da3b2e67ffadac92409f79bdeafd285b202ab4fa7789f46d",
       "userId": "u-tuan-parent"
     }
   ],

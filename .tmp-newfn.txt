@@ -1,0 +1,77 @@
+/* 在网格顶点上直接「种毛」。
+ *
+ * 走过两条弯路，都记在这里：
+ *  1) 按椭球半径撒点（addFurStrands）：脸不是标准椭球，额头/腮鼓出去 1~2cm，
+ *     毛根埋进网格里，只剩毛尖戳出来 —— 一脸小黑点。
+ *  2) 从骨骼中心打射线求交：中心在实体内部，第一步就判「命中」，
+ *     毛根全埋在头骨里 5cm，一根都看不见；而且密度按立体角分布，
+ *     头顶密、脖子稀，会形成一条「发带」。
+ * 正确做法：直接用蒙皮网格自己的顶点和法线。密度均匀、法线准确，
+ * 每根毛挂到权重最大的那根骨头上，跟着动画一起动。 */
+function addMeshStrands(mesh, bones, count, colors, options = {}) {
+  const geo = mesh.geometry;
+  const posAttr = geo.attributes.position;
+  const nrmAttr = geo.attributes.normal;
+  const skinIndex = geo.attributes.skinIndex;
+  const skinWeight = geo.attributes.skinWeight;
+  if (!posAttr || !nrmAttr || !skinIndex || !skinWeight) return [];
+  const total = posAttr.count;
+  const step = Math.max(1, Math.floor(total / Math.max(1, count)));
+  const buckets = new Map();
+  const p = new THREE.Vector3();
+  const nv = new THREE.Vector3();
+  for (let i = 0; i < total; i += step) {
+    // 打散采样相位，否则毛会按顶点顺序排成一行行
+    if (Math.random() < 0.3) continue;
+    nv.set(nrmAttr.getX(i), nrmAttr.getY(i), nrmAttr.getZ(i));
+    if (nv.lengthSq() < 1e-8) continue;
+    nv.normalize();
+    p.set(posAttr.getX(i), posAttr.getY(i), posAttr.getZ(i));
+    if (options.filter && !options.filter(nv, p.x, p.y, p.z)) continue;
+    let boneIdx = 0;
+    let bestW = -1;
+    const weights = [skinWeight.getX(i), skinWeight.getY(i), skinWeight.getZ(i), skinWeight.getW(i)];
+    const idx = [skinIndex.getX(i), skinIndex.getY(i), skinIndex.getZ(i), skinIndex.getW(i)];
+    for (let k = 0; k < 4; k += 1) {
+      if (weights[k] > bestW) { bestW = weights[k]; boneIdx = idx[k]; }
+    }
+    if (!buckets.has(boneIdx)) buckets.set(boneIdx, []);
+    buckets.get(boneIdx).push([p.x, p.y, p.z, nv.x, nv.y, nv.z]);
+  }
+  const minLen = options.minLen || 0.012;
+  const maxLen = options.maxLen || 0.028;
+  const minThick = options.minThick || 0.0020;
+  const maxThick = options.maxThick || 0.0038;
+  const dummy = new THREE.Object3D();
+  const local = new THREE.Vector3();
+  const localNormal = new THREE.Vector3();
+  const out = [];
+  buckets.forEach((list, boneIdx) => {
+    const bone = bones[boneIdx];
+    if (!bone || !list.length) return;
+    bone.updateWorldMatrix(true, false);
+    const toLocal = new THREE.Matrix4().copy(bone.matrixWorld).invert();
+    const rotLocal = new THREE.Quaternion().setFromRotationMatrix(toLocal);
+    const inst = new THREE.InstancedMesh(getStrandGeometry(), options.material, list.length);
+    list.forEach(([x, y, z, nx, ny, nz], k) => {
+      const length = minLen + Math.random() * (maxLen - minLen);
+      const thickness = minThick + Math.random() * (maxThick - minThick);
+      local.set(x, y, z).applyMatrix4(toLocal);
+      localNormal.set(nx, ny, nz).applyQuaternion(rotLocal);
+      dummy.position.copy(local).addScaledVector(localNormal, length * 0.35);
+      dummy.quaternion.setFromUnitVectors(UP, localNormal);
+      dummy.rotateY(Math.random() * Math.PI * 2);
+      dummy.rotateX((Math.random() - 0.5) * 0.55);
+      dummy.scale.set(thickness, length, thickness);
+      dummy.updateMatrix();
+      inst.setMatrixAt(k, dummy.matrix);
+    });
+    inst.count = list.length;
+    inst.instanceMatrix.needsUpdate = true;
+    inst.frustumCulled = false;
+    recolorStrands(inst, colors);
+    bone.add(inst);
+    out.push(inst);
+  });
+  return out;
+}

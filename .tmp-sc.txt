@@ -1,0 +1,16 @@
+function strandColors(coat) {
+  /* 毛丝要比底色「亮」而不是「深」。
+   * 之前直接拿 base / shell 上色，在浅色背景上，轮廓那一圈全是黑色硬刺 ——
+   * 真猫的毛在边缘是透光的，越靠外越亮。
+   * 现在以「主色混浅色」为主，只留一成暗色做层次。 */
+  const soft = toThree(mixColor(coat.palette.base, coat.palette.light, 0.58));
+  const mid = toThree(mixColor(coat.palette.base, coat.palette.light, 0.26));
+  const dark = toThree(shade(coat.palette.base, 0.9));
+  return [
+    soft,
+    soft.clone().offsetHSL(0, 0, 0.035),
+    mid,
+    mid.clone().offsetHSL(0, 0, 0.02),
+    dark
+  ];
+}

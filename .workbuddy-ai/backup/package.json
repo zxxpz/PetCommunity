@@ -1,0 +1,17 @@
+{
+  "name": "Kart",
+  "version": "1.0.0",
+  "private": true,
+  "description": "喵星旅行社 - 简单 2D 版本",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "react-scripts": "^5.0.1",
+    "three": "^0.187.0",
+    "webpack": "^5.112.2",
+    "webpack-cli": "^7.3.1"
+  }
+}
